@@ -1,137 +1,211 @@
-import * as React from "react";
-import { motion } from "motion/react";
-import { IconCalendar, IconMail, IconShieldCheck } from "@tabler/icons-react";
+import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Camera, Check, ChevronRight, LogOut, Pencil } from "lucide-react";
 
-import { Header } from "@/features/navigation/ui/Header";
-import { Badge } from "@/shared/components/ui/badge";
-import { Separator } from "@/shared/components/ui/separator";
-import { Skeleton } from "@/shared/components/ui/skeleton";
-
-import { useProfile } from "@/features/profile/useProfile";
-import { ProfileAvatarUpload } from "@/features/profile/ProfileAvatarUpload";
-import { ProfileEditForm } from "@/features/profile/ProfileEditForm";
-
-const container = {
-    hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: { staggerChildren: 0.1, delayChildren: 0.05 },
-    },
-};
-
-const item = {
-    hidden: { opacity: 0, y: 16 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } },
-} as const;
-
-function formatDate(iso: string | null | undefined): string {
-    if (!iso) return "—";
-    return new Date(iso).toLocaleDateString("ru-RU", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-    });
-}
-
-function ProfileSkeleton() {
-    return (
-        <div className="mx-auto w-full max-w-2xl space-y-6 py-10 px-4">
-            <div className="flex items-center gap-6">
-                <Skeleton className="size-24 rounded-full" />
-                <div className="space-y-2">
-                    <Skeleton className="h-5 w-40" />
-                    <Skeleton className="h-4 w-56" />
-                </div>
-            </div>
-            <Skeleton className="h-64 w-full rounded-xl" />
-            <Skeleton className="h-40 w-full rounded-xl" />
-        </div>
-    );
-}
+import { useAuth } from "@/app/providers/auth/useAuth";
+import { eventsInPeriod, useFinance } from "@/entities/finance";
+import { bankMeta } from "@/entities/finance/ui/meta";
+import { useProfile, useUpdateProfile, useUploadAvatar } from "@/features/profile/useProfile";
+import { money, percent } from "@/shared/lib/format";
+import { BottomSheet } from "@/shared/ui/BottomSheet";
+import { cn } from "@/shared/lib/utils";
 
 export default function ProfilePage() {
-    const { data: profile, isLoading, isError } = useProfile();
+  const auth = useAuth();
+  const { data: profile } = useProfile();
+  const { mutate: upload, isPending: isUploading } = useUploadAvatar();
+  const { mutate: save, isPending: isSaving } = useUpdateProfile();
+  const { events, accounts, today, summary, cashAsExpense, setCashAsExpense } = useFinance();
 
-    return (
-        <div className="min-h-screen bg-background flex flex-col font-sans relative">
-            <Header />
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [name, setName] = useState("");
 
-            <div className="absolute top-16 left-0 right-0 h-48 sm:h-64 bg-gradient-to-r from-neutral-200 to-neutral-300 dark:from-neutral-800 dark:to-neutral-900 border-b border-border/40 z-0"></div>
+  const email = profile?.email ?? auth?.user?.email ?? "";
+  const displayName = profile?.username || email.split("@")[0] || "Профиль";
+  const initials = displayName.slice(0, 1).toUpperCase();
 
-            <main className="flex-1 w-full max-w-5xl mx-auto px-4 lg:px-6 pt-40 sm:pt-56 pb-12 relative z-10">
-                {isLoading && <ProfileSkeleton />}
+  const monthEvents = eventsInPeriod(events, "month", today);
+  const askedCount = monthEvents.filter(
+    (event) => event.status === "needs_attention" || event.status === "confirmed"
+  ).length;
+  const autoShare = monthEvents.length > 0 ? 1 - askedCount / monthEvents.length : 1;
+  const daysWithUs = profile?.createdAt
+    ? Math.max(1, Math.round((Date.now() - new Date(profile.createdAt).getTime()) / 86_400_000))
+    : 1;
 
-                {isError && (
-                    <div className="mx-auto max-w-2xl py-20 text-center text-muted-foreground mt-12 bg-card rounded-xl border p-8">
-                        Не удалось загрузить профиль. Попробуйте обновить страницу.
-                    </div>
-                )}
+  return (
+    <>
+      <header className="px-5 pb-4 pt-5 safe-top">
+        <h1 className="text-[22px] font-bold -tracking-[0.02em]">Профиль</h1>
+      </header>
 
-                {profile && (
-                    <motion.div
-                        className="flex flex-col md:flex-row gap-8 lg:gap-12"
-                        variants={container}
-                        initial="hidden"
-                        animate="show"
-                    >
-                        <motion.div variants={item} className="w-full md:w-1/3 flex flex-col items-center md:items-start text-center md:text-left gap-6">
-                            <div className="-mt-12 sm:-mt-20">
-                                <ProfileAvatarUpload
-                                    src={profile.profilePicUrl}
-                                    username={profile.username}
-                                    email={profile.email}
-                                />
-                            </div>
+      <section className="px-5">
+        <div className="flex items-center gap-4 rounded-3xl border border-line bg-surface p-4">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={isUploading}
+            className="group relative size-16 shrink-0 overflow-hidden rounded-full border border-line-strong bg-raised"
+          >
+            {profile?.profilePicUrl ? (
+              <img src={profile.profilePicUrl} alt="" className="size-full object-cover" />
+            ) : (
+              <span className="flex size-full items-center justify-center text-[22px] font-semibold text-fg-muted">
+                {initials}
+              </span>
+            )}
+            <span
+              className={cn(
+                "absolute inset-0 flex items-center justify-center bg-black/55 transition-opacity",
+                isUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              )}
+            >
+              <Camera className="size-5 text-white" />
+            </span>
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) upload(file);
+              event.target.value = "";
+            }}
+          />
 
-                            <div className="space-y-1 w-full">
-                                <h1 className="truncate text-3xl font-extrabold tracking-tight">
-                                    {profile.username || profile.email}
-                                </h1>
-                                <p className="truncate text-base text-muted-foreground font-medium">
-                                    {profile.email}
-                                </p>
-                            </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[17px] font-semibold">{displayName}</p>
+            <p className="mt-0.5 truncate text-[13px] text-fg-faint">{email}</p>
+          </div>
 
-                            {profile.roles && profile.roles.length > 0 && (
-                                <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                                    {profile.roles.map((role) => (
-                                        <Badge key={role} variant="secondary" className="text-xs px-2.5 py-0.5">
-                                            {role}
-                                        </Badge>
-                                    ))}
-                                </div>
-                            )}
-
-                            <Separator className="w-full" />
-
-                            <div className="w-full space-y-4 text-sm">
-                                <div className="flex items-center text-muted-foreground">
-                                    <IconMail className="size-4 mr-3" />
-                                    <span>{profile.email}</span>
-                                </div>
-
-                                <div className="flex items-center text-muted-foreground">
-                                    <IconCalendar className="size-4 mr-3" />
-                                    <span>В сети с {formatDate(profile.createdAt)}</span>
-                                </div>
-
-                                <div className="flex items-center text-muted-foreground">
-                                    <IconShieldCheck className="size-4 mr-3" />
-                                    {profile.banned ? (
-                                        <Badge variant="destructive" className="h-5 rounded-sm px-1.5 text-[10px] font-semibold uppercase">Забанен</Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="h-5 rounded-sm px-1.5 text-[10px] font-semibold uppercase border-foreground/20 text-foreground/70">Активен</Badge>
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        <motion.div variants={item} className="w-full md:w-2/3 flex flex-col pt-4 md:pt-8">
-                            <ProfileEditForm profile={profile} />
-                        </motion.div>
-                    </motion.div>
-                )}
-            </main>
+          <button
+            type="button"
+            onClick={() => {
+              setName(profile?.username ?? "");
+              setEditOpen(true);
+            }}
+            aria-label="Изменить имя"
+            className="rounded-full border border-line bg-raised p-2.5 text-fg-muted transition-colors hover:text-fg"
+          >
+            <Pencil className="size-4" />
+          </button>
         </div>
-    );
+      </section>
+
+      <section className="mt-2.5 grid grid-cols-2 gap-2 px-5">
+        <Stat label="Разобрано без вас" value={percent(autoShare)} tone="sage" />
+        <Stat label="Шума убрано" value={money(summary.excluded)} />
+        <Stat label="Вопросов за месяц" value={String(askedCount)} tone={askedCount ? "brass" : "muted"} />
+        <Stat label="Дней с нами" value={String(daysWithUs)} />
+      </section>
+
+      <section className="mt-5 px-5">
+        <h2 className="pb-2 text-[15px] font-semibold">Настройки</h2>
+        <div className="rounded-3xl border border-line bg-surface">
+          <div className="flex items-center justify-between gap-4 px-4 py-4">
+            <span className="min-w-0">
+              <span className="block text-[14px] font-medium">Наличные — это трата</span>
+              <span className="mt-0.5 block text-[12.5px] text-fg-faint">
+                Снятия в банкомате попадают в расходы
+              </span>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={cashAsExpense}
+              onClick={() => setCashAsExpense(!cashAsExpense)}
+              className={cn(
+                "relative h-7 w-12 shrink-0 rounded-full transition-colors",
+                cashAsExpense ? "bg-sage" : "bg-line-strong"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-1 size-5 rounded-full bg-white transition-all",
+                  cashAsExpense ? "left-6" : "left-1"
+                )}
+              />
+            </button>
+          </div>
+
+          <Link
+            to="/accounts"
+            className="flex items-center justify-between border-t border-line px-4 py-4"
+          >
+            <span>
+              <span className="block text-[14px] font-medium">Подключённые банки</span>
+              <span className="mt-1 flex items-center gap-1">
+                {accounts.map((account) => (
+                  <span
+                    key={account.id}
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: bankMeta[account.bank]?.color }}
+                  />
+                ))}
+                <span className="ml-1 text-[12.5px] text-fg-faint">{accounts.length} счёта</span>
+              </span>
+            </span>
+            <ChevronRight className="size-4 text-fg-faint" />
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => auth?.logout()}
+            className="flex w-full items-center gap-2 border-t border-line px-4 py-4 text-[14px] text-fg-muted transition-colors hover:text-destructive"
+          >
+            <LogOut className="size-4" />
+            Выйти
+          </button>
+        </div>
+      </section>
+
+      <BottomSheet open={editOpen} onClose={() => setEditOpen(false)} title="Как вас зовут">
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Имя"
+          className="w-full rounded-2xl border border-line bg-raised px-4 py-3.5 text-[15px] outline-none transition-colors placeholder:text-fg-faint focus:border-sage"
+        />
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => {
+            save({ username: name.trim() || null });
+            setEditOpen(false);
+          }}
+          className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl bg-sage px-4 py-3.5 text-[15px] font-semibold text-white disabled:opacity-50"
+        >
+          <Check className="size-4" />
+          Сохранить
+        </button>
+      </BottomSheet>
+    </>
+  );
 }
+
+const Stat = ({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "sage" | "brass" | "muted";
+}) => (
+  <div className="rounded-2xl border border-line bg-surface px-4 py-3.5">
+    <p className="text-[11.5px] text-fg-faint">{label}</p>
+    <p
+      className={cn(
+        "tnum mt-1 text-[19px] font-bold",
+        tone === "sage" && "text-sage-strong",
+        tone === "brass" && "text-brass",
+        tone === "muted" && "text-fg-faint"
+      )}
+    >
+      {value}
+    </p>
+  </div>
+);

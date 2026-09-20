@@ -1,10 +1,13 @@
 import { Navigate, Outlet, useLocation, useRoutes, type Location, type RouteObject } from "react-router-dom";
-import HomePage from "@/pages/Home";
-import ProfilePage from "@/pages/Profile/ui/ProfilePage";
-import AuthPage from "@/pages/auth/ui/AuthPage";
-import { useAuth } from "@/app/providers/auth/useAuth";
 
-import DashboardPage from "@/pages/Dashboard";
+import { useAuth } from "@/app/providers/auth/useAuth";
+import { MobileShell } from "@/app/layouts/MobileShell";
+import AccountsPage from "@/pages/accounts/ui/AccountsPage";
+import AnalyticsPage from "@/pages/analytics/ui/AnalyticsPage";
+import AuthPage from "@/pages/auth/ui/AuthPage";
+import EventsPage from "@/pages/events/ui/EventsPage";
+import HomePage from "@/pages/home/ui/HomePage";
+import ProfilePage from "@/pages/profile/ui/ProfilePage";
 
 const RequireAuth = () => {
   const auth = useAuth();
@@ -46,21 +49,26 @@ export const routes: RouteObject[] = [
     path: "/",
     element: <RequireAuth />,
     children: [
-      { index: true, element: <HomePage /> },
-      { path: "profile", element: <ProfilePage /> },
-      { path: "dashboard", element: <DashboardPage /> },
-    ]
+      {
+        element: <MobileShell />,
+        children: [
+          { index: true, element: <HomePage /> },
+          { path: "events", element: <EventsPage /> },
+          { path: "analytics", element: <AnalyticsPage /> },
+          { path: "accounts", element: <AccountsPage /> },
+          { path: "profile", element: <ProfilePage /> },
+        ],
+      },
+    ],
   },
   {
     path: "/auth",
-    element: <RedirectIfAuthenticated />
+    element: <RedirectIfAuthenticated />,
   },
   {
     path: "*",
-    element: <Navigate to="/" replace />
-  }
+    element: <Navigate to="/" replace />,
+  },
 ];
 
-export const AppRoutes = () => {
-  return useRoutes(routes);
-};
+export const AppRoutes = () => useRoutes(routes);
