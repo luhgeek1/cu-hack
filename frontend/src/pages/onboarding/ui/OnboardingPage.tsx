@@ -4,7 +4,11 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, FileText, Upload } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth/useAuth";
-import { demoIntake, demoSummary } from "@/entities/finance";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import { financeApi, useFinance } from "@/entities/finance";
+import type { ImportResultDto } from "@/entities/finance/api/dto";
 import { markOnboarded } from "@/features/onboarding/model/storage";
 import { OnboardingArtwork } from "@/features/auth/ui/OnboardingArtwork";
 import { ProcessingSteps } from "@/features/onboarding/ui/ProcessingSteps";
@@ -32,18 +36,69 @@ const DEMO_FILE = "vypiska-sentyabr.pdf";
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const auth = useAuth();
+  const queryClient = useQueryClient();
+  const { today, summary } = useFinance();
+  const [result, setResult] = useState<ImportResultDto | null>(null);
+
+  /** Честно показываем, что маркетплейсы — импорт файлов, а не живая синхронизация */
+  const integrations = useQuery({
+    queryKey: ["finance", "integrations"],
+    queryFn: financeApi.getIntegrations,
+    staleTime: 60_000,
+  });
+
+  /** Выписка: заводим счёт под импорт и отправляем PDF */
+  const importStatement = useMutation({
+    mutationFn: async (file: File) => {
+      const account = await financeApi.createAccount({
+        external_id: `statement-${Date.now()}`,
+        bank: "tbank",
+        name: "Выписка Т-Банка",
+        account_type: "card",
+      });
+      return financeApi.importStatement(account.id, file);
+    },
+    onSuccess: (statement) => {
+      setResult(statement.import_result);
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      setStep("services");
+    },
+    onError: (error: unknown) => {
+      const detail =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        "Не удалось разобрать выписку";
+      toast.error(detail);
+      setStep("upload");
+    },
+  });
+
+  /** Демо-набор: четыре банка одним запросом, идемпотентно */
+  const loadDemo = useMutation({
+    mutationFn: () => financeApi.loadDemo(today),
+    onSuccess: (importResult) => {
+      setResult(importResult);
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      setStep("services");
+    },
+    onError: () => {
+      toast.error("Не удалось загрузить демо-данные");
+      setStep("upload");
+    },
+  });
 
   const [step, setStep] = useState<Step>("upload");
+  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
   const [services, setServices] = useState<string[]>(["ozon"]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const takeFile = (file: File | null | undefined) => {
-    if (!file) return;
-    setFileName(file.name);
-    setFileSize(file.size);
+  const takeFile = (selected: File | null | undefined) => {
+    if (!selected) return;
+    setFile(selected);
+    setFileName(selected.name);
+    setFileSize(selected.size);
   };
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -151,8 +206,12 @@ export default function OnboardingPage() {
                 <div className="mt-auto space-y-2 pt-8">
                   <button
                     type="button"
-                    disabled={!fileName}
-                    onClick={() => setStep("reading")}
+                    disabled={!file}
+                    onClick={() => {
+                      if (!file) return;
+                      setStep("reading");
+                      importStatement.mutate(file);
+                    }}
                     className="w-full rounded-2xl bg-sage px-4 py-4 text-[15px] font-semibold text-white transition-opacity disabled:opacity-35"
                   >
                     Продолжить
@@ -163,6 +222,7 @@ export default function OnboardingPage() {
                       setFileName(DEMO_FILE);
                       setFileSize(null);
                       setStep("reading");
+                      loadDemo.mutate();
                     }}
                     className="w-full py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg"
                   >
@@ -179,13 +239,11 @@ export default function OnboardingPage() {
                 </h1>
                 <p className="mt-2 truncate text-[14px] text-fg-muted">{fileName}</p>
 
-                <div className="flex flex-1 items-center">
-                  <div className="w-full">
-                    <ProcessingSteps
-                      steps={["Открываем PDF", "Находим операции", "Приводим к одному формату"]}
-                      onDone={() => setStep("services")}
-                    />
-                  </div>
+                <div className="mt-6 w-full">
+                  <ProcessingSteps
+                    steps={["Открываем PDF", "Находим операции", "Приводим к одному формату"]}
+                    onDone={() => setStep("services")}
+                  />
                 </div>
               </>
             ) : null}
@@ -270,19 +328,17 @@ export default function OnboardingPage() {
                   Из операций восстанавливаем, что произошло на самом деле
                 </p>
 
-                <div className="flex flex-1 items-center">
-                  <div className="w-full">
-                    <ProcessingSteps
-                      pace={850}
-                      steps={[
-                        "Связываем переводы между счетами",
-                        "Находим возвраты и общие счета",
-                        "Считаем реальные траты",
-                        "Отмечаем, что нужно уточнить",
-                      ]}
-                      onDone={() => setStep("done")}
-                    />
-                  </div>
+                <div className="mt-6 w-full">
+                  <ProcessingSteps
+                    pace={850}
+                    steps={[
+                      "Связываем переводы между счетами",
+                      "Находим возвраты и общие счета",
+                      "Считаем реальные траты",
+                      "Отмечаем, что нужно уточнить",
+                    ]}
+                    onDone={() => setStep("done")}
+                  />
                 </div>
               </>
             ) : null}
@@ -299,16 +355,18 @@ export default function OnboardingPage() {
                 <div data-art-occluder className="mt-6 rounded-3xl border border-line bg-surface p-5">
                   <div className="flex items-baseline justify-between">
                     <span className="text-[13px] text-fg-muted">Банк списал</span>
-                    <span className="tnum text-[15px] text-fg-muted">{money(demoSummary.bankSpent)}</span>
+                    <span className="tnum text-[15px] text-fg-muted">{money(summary.bankSpent)}</span>
                   </div>
                   <div className="mt-3 flex items-baseline justify-between">
                     <span className="text-[13px] text-fg">Ваши траты</span>
-                    <span className="tnum text-[22px] font-bold">{money(demoSummary.realExpense)}</span>
+                    <span className="tnum text-[22px] font-bold">{money(summary.realExpense)}</span>
                   </div>
                   <div className="mt-3 h-3 overflow-hidden rounded-full bg-raised">
                     <motion.div
                       className="h-full origin-left rounded-full bg-sage"
-                      style={{ width: `${(demoSummary.realExpense / demoSummary.bankSpent) * 100}%` }}
+                      style={{
+                        width: `${summary.bankSpent > 0 ? (summary.realExpense / summary.bankSpent) * 100 : 0}%`,
+                      }}
                       initial={{ scaleX: 0 }}
                       animate={{ scaleX: 1 }}
                       transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
@@ -317,9 +375,9 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="mt-2 grid grid-cols-3 gap-2">
-                  <Tile value={String(demoIntake.transactions)} label="операций" />
-                  <Tile value={String(demoIntake.events)} label="событий" />
-                  <Tile value={String(demoIntake.needsAttention)} label="уточнить" tone="brass" />
+                  <Tile value={String(result?.imported_count ?? 0)} label="операций" />
+                  <Tile value={String(result?.event_count ?? 0)} label="событий" />
+                  <Tile value={String(result?.needs_attention_count ?? 0)} label="уточнить" tone="brass" />
                 </div>
 
                 <div className="mt-auto pt-8">

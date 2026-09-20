@@ -168,6 +168,30 @@ Agents: when you start work, append an `[IN PROGRESS]` section below.
 
 ---
 
+## [DONE] Фронтенд подключён к бэкенду
+
+Agent: Claude (frontend)
+Completed: 2026-09-20
+
+Что сделано:
+- Слой API: `entities/finance/api/{dto,client}.ts` — типы из `/api/openapi.json` и запросы через существующий `apiProtected` (Bearer + refresh уже были).
+- Маппинг бэкенд → UI: `entities/finance/model/mappers.ts` (копейки → рубли, snake_case → модель экранов,英 категории → русские подписи, дневной timeline → ряды графика).
+- `FinanceProvider` переписан на react-query: `/dashboard`, `/attention`, `/digest`; мутация `/events/{id}/resolve` инвалидирует кэш — пересчёт виден сразу.
+- Экраны на живых данных: главная, события (`/events` за период), карточка события (`/events/{id}` + Money Graph из реальных операций), аналитика (`/analytics`), счета (`/accounts` + `/banks` + `connect-and-sync`), профиль (метрики из `/events` и summary).
+- Онбординг: «Взять демо-выписку» → `POST /demo/load`; свой PDF → `POST /accounts` + `POST /imports/tbank`; шаг сервисов показывает `GET /integrations`; итоговый экран — числа из `ImportResult` и `/dashboard`.
+- Гейт онбординга теперь по данным сервера (есть ли счета), локальный флаг остался только для «пройти заново».
+- Мок-датасет удалён (`entities/finance/model/dataset.ts`, `analytics.ts`).
+- Починен билд бэкенда: `pyproject.toml` содержал `pymupdf`, но `poetry.lock` не пересобирали — `docker compose build backend` падал.
+
+Проверено вживую (docker, реальный пользователь):
+- регистрация → онбординг → демо-импорт (70 операций) → главная с числами бэкенда (50 198 ₽ списаний → 15 598 ₽ реальных трат);
+- ответ на вопрос в карточке «Нужно решить» → карточка исчезает, суммы пересчитываются;
+- все пять вкладок открываются без ошибок JS и 4xx.
+
+Не реализовано (нужны решения бэкенда) — см. раздел «Открытые вопросы» ниже.
+
+---
+
 # Entry template
 
 ## [IN PROGRESS] Task name
@@ -407,4 +431,20 @@ Implemented:
 Files: frontend/src/features/auth/ui/OnboardingArtwork.tsx, silver-orbit.css, pages/auth/ui/AuthPage.tsx, pages/onboarding/ui/OnboardingPage.tsx.
 Validation: all eight screens visited with Playwright and mocked auth; clear auth form and blurred content screens confirmed; canvas identity preserved across onboarding steps; 320px viewport has no horizontal overflow; no browser exceptions. Final build passed in /tmp/onboarding-art-check (HEAD snapshot plus artwork changes).
 Integration note: concurrent edits removed finance analytics/dataset and their exports during final verification, temporarily breaking the shared workspace build. Those unrelated edits were preserved. Isolated verification uses the existing HEAD finance module.
+API/contracts: unchanged.
+
+## [DONE] Align onboarding processing steps below heading
+Agent: Codex
+Completed: 2026-09-20
+Implemented: moved the reading and parsing step lists from vertical centering into the normal layout flow, directly below their descriptions with a consistent 24px gap.
+Files: frontend/src/pages/onboarding/ui/OnboardingPage.tsx.
+Validation: frontend production build passed.
+API/contracts: unchanged.
+
+## [DONE] Interactive onboarding coin
+Agent: Codex
+Completed: 2026-09-20
+Implemented: cursor parallax, mouse and touch dragging, tap impulse, inertial release, spring lift/scale, and orbit counter-motion. Interactive controls over the artwork remain clickable; reduced-motion keeps the static scene.
+Files: frontend/src/features/auth/ui/{silver-orbit-scene.ts,silver-orbit.css}.
+Validation: production build passed; Chrome Pointer Events check confirmed mouse drag and CDP touch drag both capture and release without browser errors.
 API/contracts: unchanged.

@@ -1,6 +1,6 @@
 # AGENT.md
 
-## Project: «Честный месяц» / Honest Month
+## Project: PALATA
 
 ### Hackathon context
 
@@ -136,7 +136,7 @@ Grant access
 ↓
 Sync transactions
 ↓
-Honest Month dashboard
+PALATA dashboard
 ```
 
 Important:
@@ -804,7 +804,7 @@ Show:
 Banks think:
 64 020 ₽ spent
 
-Honest Month:
+PALATA:
 38 420 ₽ real spending
 ```
 

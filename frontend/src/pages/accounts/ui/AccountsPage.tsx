@@ -2,33 +2,48 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Plus, RefreshCw, ShieldCheck } from "lucide-react";
 
-import { useFinance } from "@/entities/finance";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import { financeApi, useFinance } from "@/entities/finance";
 import { bankMeta } from "@/entities/finance/ui/meta";
 import { TotalBalanceCard } from "@/features/finance/ui/TotalBalanceCard";
 import { money, time } from "@/shared/lib/format";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
 import { cn } from "@/shared/lib/utils";
 
-const AVAILABLE = [
-  { id: "vtb", name: "ВТБ", color: "#0a2973" },
-  { id: "raiffeisen", name: "Райффайзен", color: "#fee600" },
-  { id: "yandex", name: "Яндекс Пэй", color: "#fc3f1d" },
-];
 
 export default function AccountsPage() {
-  const { accounts, connectedBanks, connectBank, isSyncing } = useFinance();
+  const { accounts, today, isSyncing, refresh } = useFinance();
+  const queryClient = useQueryClient();
+
+  const banks = useQuery({
+    queryKey: ["finance", "banks"],
+    queryFn: financeApi.getBanks,
+    staleTime: 60_000,
+  });
+
+  const connect = useMutation({
+    mutationFn: (provider: string) => financeApi.connectBank(provider, today),
+    onSuccess: (result) => {
+      toast.success(`Импортировано операций: ${result.imported_count}`);
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      setSheetOpen(false);
+      setConnecting(null);
+    },
+    onError: () => {
+      toast.error("Не удалось подключить банк");
+      setConnecting(null);
+    },
+  });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
 
   const total = accounts.reduce((sum, account) => sum + account.balance, 0);
 
-  const handleConnect = (bank: string) => {
-    setConnecting(bank);
-    window.setTimeout(() => {
-      connectBank(bank);
-      setConnecting(null);
-      setSheetOpen(false);
-    }, 1400);
+  const handleConnect = (provider: string) => {
+    setConnecting(provider);
+    connect.mutate(provider);
   };
 
   return (
@@ -105,15 +120,15 @@ export default function AccountsPage() {
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Подключить банк">
         <ul className="space-y-2">
-          {AVAILABLE.map((bank) => {
-            const connected = connectedBanks.includes(bank.id);
-            const busy = connecting === bank.id;
+          {(banks.data ?? []).map((bank) => {
+            const connected = bank.connected;
+            const busy = connecting === bank.code;
             return (
-              <li key={bank.id}>
+              <li key={bank.code}>
                 <button
                   type="button"
                   disabled={connected || busy}
-                  onClick={() => handleConnect(bank.id)}
+                  onClick={() => handleConnect(bank.code)}
                   className={cn(
                     "flex w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors",
                     connected ? "border-sage/40 bg-sage-dim" : "border-line bg-raised hover:border-line-strong"
@@ -121,7 +136,7 @@ export default function AccountsPage() {
                 >
                   <span
                     className="flex size-9 shrink-0 items-center justify-center rounded-xl text-[14px] font-bold text-white"
-                    style={{ backgroundColor: bank.color }}
+                    style={{ backgroundColor: bankMeta[bank.code]?.color ?? "var(--color-raised)" }}
                   >
                     {bank.name.slice(0, 1)}
                   </span>

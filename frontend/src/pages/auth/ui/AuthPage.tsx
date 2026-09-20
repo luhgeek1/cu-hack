@@ -4,12 +4,15 @@ import { ArrowLeft, FileText, Layers, Wallet } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth/useAuth";
 import type { AuthCredentials } from "@/entities/auth/model";
-import { demoSummary } from "@/entities/finance";
 import { money } from "@/shared/lib/format";
 import { OnboardingArtwork } from "@/features/auth/ui/OnboardingArtwork";
+import { PalataLogo } from "@/shared/ui/PalataLogo";
 
 type Mode = "login" | "register";
 type Stage = "intro" | "form";
+
+/** До входа данных пользователя нет — показываем витрину продукта */
+const SHOWCASE = { bank: 64_020, real: 38_420 };
 
 const PROMISE = [
   { icon: FileText, text: "Загружаете выписку" },
@@ -84,7 +87,7 @@ export default function AuthPage(): ReactElement {
             <ArrowLeft className="size-5" />
           </button>
         ) : (
-          <span className="text-[14px] font-semibold -tracking-[0.01em]">Честный месяц</span>
+          <PalataLogo variant="inline" size="sm" />
         )}
 
         <AnimatePresence mode="wait">
@@ -107,19 +110,19 @@ export default function AuthPage(): ReactElement {
                   <div>
                     <div className="mb-1.5 flex items-baseline justify-between text-[12.5px]">
                       <span className="text-fg-faint">Банк списал</span>
-                      <span className="tnum text-fg-muted">{money(demoSummary.bankSpent)}</span>
+                      <span className="tnum text-fg-muted">{money(SHOWCASE.bank)}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-line-strong" />
                   </div>
                   <div>
                     <div className="mb-1.5 flex items-baseline justify-between text-[12.5px]">
                       <span className="text-fg">Ваши траты</span>
-                      <span className="tnum text-fg">{money(demoSummary.realExpense)}</span>
+                      <span className="tnum text-fg">{money(SHOWCASE.real)}</span>
                     </div>
                     <div className="h-3 overflow-hidden rounded-full bg-raised">
                       <motion.div
                         style={{
-                          width: `${Math.round((demoSummary.realExpense / demoSummary.bankSpent) * 100)}%`,
+                          width: `${Math.round((SHOWCASE.real / SHOWCASE.bank) * 100)}%`,
                         }}
                         initial={{ scaleX: 0 }}
                         animate={{ scaleX: 1 }}

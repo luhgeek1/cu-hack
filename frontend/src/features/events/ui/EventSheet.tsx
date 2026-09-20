@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowUp } from "lucide-react";
 
-import { accountsById, transactionsById, useFinance, type FinancialEvent } from "@/entities/finance";
+import { financeApi, useFinance, type FinancialEvent } from "@/entities/finance";
 import { dayMonth, money, time } from "@/shared/lib/format";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
 import { cn } from "@/shared/lib/utils";
@@ -14,19 +15,29 @@ type EventSheetProps = {
 };
 
 export const EventSheet = ({ event, onClose }: EventSheetProps) => {
-  const { resolve, resolveCustom } = useFinance();
+  const { resolve, resolveCustom, accounts } = useFinance();
   const [draft, setDraft] = useState("");
 
   /** Новый вопрос — чистое поле */
   useEffect(() => setDraft(""), [event?.id]);
 
+  const detail = useQuery({
+    queryKey: ["finance", "event", event?.id],
+    queryFn: () => financeApi.getEventDetail(event!.id),
+    enabled: Boolean(event?.id),
+    staleTime: 30_000,
+  });
+
+  const accountName = useMemo(() => {
+    const map = new Map(accounts.map((account) => [account.id, account.bankName]));
+    return (id: string) => map.get(id) ?? "Счёт";
+  }, [accounts]);
+
   if (!event) return <BottomSheet open={false} onClose={onClose} />;
 
   const attention = event.status === "needs_attention";
-  const hasGraph = event.transactionIds.length > 1;
-  const transactions = event.transactionIds
-    .map((id) => transactionsById.get(id))
-    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const transactions = detail.data?.transactions ?? [];
+  const hasGraph = transactions.length > 1;
 
   /** Сначала факт — что за операция, от кого и на сколько, — и только потом вопрос */
   const operations = hasGraph ? null : (
@@ -35,36 +46,40 @@ export const EventSheet = ({ event, onClose }: EventSheetProps) => {
         {attention ? "Что за операция" : "Операции банка"}
       </p>
       <ul className="overflow-hidden rounded-2xl border border-line">
-        {transactions.map((item, index) => {
-          const account = accountsById.get(item.accountId);
-          return (
-            <li
-              key={item.id}
+        {transactions.map((item, index) => (
+          <li
+            key={item.id}
+            className={cn(
+              "flex items-center justify-between gap-3 bg-raised px-4 py-3",
+              index > 0 && "border-t border-line"
+            )}
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-[13.5px]">
+                {item.merchant ?? item.counterparty ?? item.description}
+              </span>
+              <span className="mt-0.5 block text-[11.5px] text-fg-faint">
+                {accountName(item.account_id)} · {dayMonth(item.occurred_at)}, {time(item.occurred_at)}
+              </span>
+              {item.description && item.description !== item.merchant ? (
+                <span className="mt-0.5 block truncate text-[11.5px] text-fg-faint">
+                  «{item.description}»
+                </span>
+              ) : null}
+            </span>
+            <span
               className={cn(
-                "flex items-center justify-between gap-3 bg-raised px-4 py-3",
-                index > 0 && "border-t border-line"
+                "tnum shrink-0 text-[15px]",
+                item.amount_minor > 0 ? "text-sage-strong" : "text-fg"
               )}
             >
-              <span className="min-w-0">
-                <span className="block truncate text-[13.5px]">{item.merchant ?? account?.bankName}</span>
-                <span className="mt-0.5 block text-[11.5px] text-fg-faint">
-                  {account?.bankName} · {dayMonth(item.timestamp)}, {time(item.timestamp)}
-                </span>
-                {item.description ? (
-                  <span className="mt-0.5 block truncate text-[11.5px] text-fg-faint">«{item.description}»</span>
-                ) : null}
-              </span>
-              <span
-                className={cn(
-                  "tnum shrink-0 text-[15px]",
-                  item.direction === "credit" ? "text-sage-strong" : "text-fg"
-                )}
-              >
-                {money(item.direction === "debit" ? -item.amount : item.amount, { sign: true })}
-              </span>
-            </li>
-          );
-        })}
+              {money(item.amount_minor / 100, { sign: true })}
+            </span>
+          </li>
+        ))}
+        {detail.isLoading ? (
+          <li className="bg-raised px-4 py-4 text-[13px] text-fg-faint">Загружаем операции…</li>
+        ) : null}
       </ul>
     </div>
   );
@@ -139,7 +154,13 @@ export const EventSheet = ({ event, onClose }: EventSheetProps) => {
           </div>
         )}
 
-        <MoneyGraph event={event} />
+        {hasGraph ? (
+          <MoneyGraph
+            transactions={transactions}
+            result={event.effectiveIncome > 0 ? event.effectiveIncome : event.effectiveExpense}
+            resultLabel={event.effectiveIncome > 0 ? "Реальный доход" : "Реальная трата"}
+          />
+        ) : null}
 
         {event.debtOutstanding ? (
           <div className="flex items-center justify-between rounded-2xl border border-line bg-raised px-4 py-3.5">

@@ -1,16 +1,9 @@
 import { ChevronRight, HelpCircle } from "lucide-react";
 
 import { categoryIcon, eventMeta } from "@/entities/finance/ui/meta";
-import type { FinancialEvent } from "@/entities/finance";
-import { transactionsById, useFinance } from "@/entities/finance";
+import { useFinance, type FinancialEvent } from "@/entities/finance";
 import { money } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
-
-const grossOf = (event: FinancialEvent) =>
-  event.transactionIds.reduce((sum, id) => {
-    const item = transactionsById.get(id);
-    return item && item.direction === "debit" ? sum + item.amount : sum;
-  }, 0);
 
 type EventRowProps = {
   event: FinancialEvent;
@@ -20,7 +13,7 @@ type EventRowProps = {
 export const EventRow = ({ event, onSelect }: EventRowProps) => {
   const meta = eventMeta[event.type];
   const Icon = (event.type === "EXPENSE" && event.category ? categoryIcon[event.category] : null) ?? meta.icon;
-  const gross = grossOf(event);
+  const gross = event.amount;
   const attention = event.status === "needs_attention";
 
   let resolveFn: ((eventId: string, optionId: string) => void) | undefined;

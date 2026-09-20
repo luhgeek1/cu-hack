@@ -22,11 +22,11 @@ from service.finance.statements import parse_tbank_pdf, parse_tbank_text
 from starlette.concurrency import run_in_threadpool
 from domain.finance.marketplaces import IntegrationView, Marketplace, OrderImport, OrderImportResult, OrderLink, OrderView
 from service.finance.marketplaces import MarketplaceService
-from service.finance.insights import DSLabInsightGateway, SpendingInsightService
+from service.finance.insights import DSLabInsightGateway, RuleBasedInsightGateway, SpendingInsightService
 from service.finance.statement_ai import DSLabStatementAiGateway, StatementAiService
 from service.finance.voice import DSLabVoiceGateway, VoiceService
 
-router = APIRouter(tags=["Honest Month"])
+router = APIRouter(tags=["PALATA"])
 
 
 async def current_finance_user(user=Depends(auth_user), payload=Depends(parse_token)):
@@ -56,7 +56,8 @@ Voice = Annotated[VoiceService, Depends(get_voice_service)]
 def get_insight_service():
     settings = get_settings()
     if not settings.DSLAB_API_KEY:
-        raise UnprocessableEntityError("Spending insights are not configured")
+        # Без ключа модели советы считаются по агрегатам, эндпоинт остаётся рабочим
+        return SpendingInsightService(RuleBasedInsightGateway())
     return SpendingInsightService(DSLabInsightGateway(settings.DSLAB_API_KEY, settings.DSLAB_BASE_URL, settings.DSLAB_VOICE_MODEL))
 
 

@@ -58,26 +58,29 @@ export const SpendDonut = ({ summary }: SpendDonutProps) => {
                   key={slice.category}
                   fill={RAMP[index % RAMP.length]}
                   opacity={selected !== null && selected !== index ? 0.28 : 1}
-                  className="cursor-pointer transition-opacity duration-200"
+                  className="cursor-pointer transition-opacity duration-200 outline-none"
+                  onClick={() => setSelected(selected === index ? null : index)}
                 />
               ))}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
 
-        <button
-          type="button"
-          onClick={() => setSelected(null)}
-          className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center"
-        >
-          <span className="text-[12px] text-fg-muted">{current ? current.category : "Ваши траты"}</span>
-          <span className="tnum mt-0.5 text-[28px] font-bold leading-tight">
-            {money(current ? current.amount : summary.realExpense)}
-          </span>
-          <span className="mt-0.5 text-[12px] font-medium text-sage-strong">
-            {current ? `${percent(current.share)} трат` : `${money(summary.excluded)} не ваши`}
-          </span>
-        </button>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="pointer-events-auto flex flex-col items-center justify-center rounded-full p-4 transition-transform active:scale-95 max-w-[66%] cursor-pointer"
+          >
+            <span className="text-[12px] text-fg-muted">{current ? current.category : "Ваши траты"}</span>
+            <span className="tnum mt-0.5 text-[26px] sm:text-[28px] font-bold leading-tight">
+              {money(current ? current.amount : summary.realExpense)}
+            </span>
+            <span className="mt-0.5 text-[12px] font-medium text-sage-strong">
+              {current ? `${percent(current.share)} трат` : `${money(summary.excluded)} не ваши`}
+            </span>
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-1.5 border-t border-line pt-3">

@@ -1,203 +1,186 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
-import { summarize, type BankFilter } from "./analytics";
-import { touchesBank } from "./analytics";
-import { accounts as initialAccounts, demoToday, initialEvents } from "./dataset";
+import * as api from "../api/client";
+import type { ResolveAction } from "../api/dto";
+import { emptySummary, mapAccount, mapAttentionItem, mapEvent, mapSummary } from "./mappers";
 import type { Account, FinancialEvent, PeriodKey, PeriodSummary } from "./types";
 
 type FinanceContextValue = {
   today: Date;
-  events: FinancialEvent[];
-  accounts: Account[];
-  connectedBanks: string[];
   period: PeriodKey;
   setPeriod: (period: PeriodKey) => void;
-  bank: BankFilter;
-  setBank: (bank: BankFilter) => void;
-  isSyncing: boolean;
-  visibleEvents: FinancialEvent[];
   summary: PeriodSummary;
+  /** Последние события с дашборда */
+  events: FinancialEvent[];
+  accounts: Account[];
+  totalBalance: number;
+  lastSyncedAt: string | null;
   needsAttention: FinancialEvent[];
-  /** Последнее изменение реальных трат — для подсветки пересчёта */
-  lastDelta: { eventId: string; amount: number } | null;
+  outstandingDebt: number;
+  cashPolicy: string;
+  isLoading: boolean;
+  isSyncing: boolean;
+  isEmpty: boolean;
+  error: unknown;
   resolve: (eventId: string, optionId: string) => void;
-  /** Ответ своими словами — когда ни один быстрый вариант не подошёл */
-  resolveCustom: (eventId: string, label: string) => void;
-  /** Считать ли снятие наличных тратой — настройка из профиля */
-  cashAsExpense: boolean;
-  setCashAsExpense: (value: boolean) => void;
-  connectBank: (bank: string) => void;
+  /** Свободный ответ пользователя: сопоставляем с доступными вариантами */
+  resolveCustom: (eventId: string, text: string) => void;
+  refresh: () => void;
 };
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
+/** Всё финансовое в приложении приходит из бэкенда через эти запросы */
 export const FinanceProvider = ({ children }: { children: ReactNode }) => {
-  const [events, setEvents] = useState<FinancialEvent[]>(initialEvents);
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState<PeriodKey>("month");
-  const [connectedBanks, setConnectedBanks] = useState<string[]>(["tbank", "sber", "alfa", "ozon"]);
-  const [bank, setBank] = useState<BankFilter>("all");
-  const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
-  const [isSyncing, setSyncing] = useState(false);
-  const [lastDelta, setLastDelta] = useState<{ eventId: string; amount: number } | null>(null);
+  const today = useMemo(() => new Date(), []);
 
-  const resolve = useCallback((eventId: string, optionId: string) => {
-    setEvents((current) =>
-      current.map((event) => {
-        if (event.id !== eventId) return event;
-        const option = event.options?.find((item) => item.id === optionId);
-        if (!option) return event;
+  const dashboard = useQuery({
+    queryKey: ["finance", "dashboard", period],
+    queryFn: () => api.getDashboard(period, today),
+    staleTime: 30_000,
+  });
 
-        setLastDelta({
-          eventId,
-          amount: option.effectiveExpense - event.effectiveExpense,
-        });
+  const attention = useQuery({
+    queryKey: ["finance", "attention"],
+    queryFn: api.getAttention,
+    staleTime: 30_000,
+  });
 
-        return {
-          ...event,
-          type: option.type,
-          status: "confirmed",
-          confidence: 1,
-          effectiveExpense: option.effectiveExpense,
-          effectiveIncome: option.effectiveIncome,
-          reason: option.hint,
-          subtitle: option.label,
-        };
-      })
-    );
-  }, []);
+  const digest = useQuery({
+    queryKey: ["finance", "digest"],
+    queryFn: () => api.getDigest(today),
+    staleTime: 60_000,
+  });
 
-  const resolveCustom = useCallback((eventId: string, label: string) => {
-    const answer = label.trim();
-    if (!answer) return;
-
-    setEvents((current) =>
-      current.map((event) => {
-        if (event.id !== eventId) return event;
-
-        setLastDelta({ eventId, amount: 0 });
-
-        return {
-          ...event,
-          status: "confirmed",
-          confidence: 1,
-          reason: "Ваш вариант",
-          subtitle: answer,
-        };
-      })
-    );
-  }, []);
-
-  const setCashAsExpense = useCallback((value: boolean) => {
-    setEvents((current) =>
-      current.map((event) => {
-        if (event.policyKey !== "cash") return event;
-        const gross = event.amount;
-        return {
-          ...event,
-          type: value ? "CASH_WITHDRAWAL" : "OWN_TRANSFER",
-          category: value ? "Наличные" : undefined,
-          status: "confirmed",
-          confidence: 1,
-          effectiveExpense: value ? gross : 0,
-          effectiveIncome: 0,
-          reason: value ? "Считаем тратой — так вы настроили" : "Деньги остаются вашими",
-          subtitle: value ? "Считаем тратой" : "Лежат в кошельке",
-        };
-      })
-    );
-  }, []);
-
-  const connectBank = useCallback((bank: string) => {
-    setConnectedBanks((current) => (current.includes(bank) ? current : [...current, bank]));
-  }, []);
-
-  /** Выписки подтягиваются сами: при входе и дальше в фоне */
-  useEffect(() => {
-    let timeout = 0;
-
-    const run = () => {
-      setSyncing(true);
-      timeout = window.setTimeout(() => {
-        const now = new Date().toISOString();
-        setAccounts((current) => current.map((account) => ({ ...account, lastSyncAt: now })));
-        setSyncing(false);
-      }, 1600);
-    };
-
-    const start = window.setTimeout(run, 600);
-    const interval = window.setInterval(run, 120_000);
-
-    return () => {
-      window.clearTimeout(start);
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
-  }, []);
-
-  const summary = useMemo(() => summarize(events, period, demoToday, bank), [events, period, bank]);
-
-  const visibleEvents = useMemo(
-    () => (bank === "all" ? events : events.filter((event) => touchesBank(event, bank))),
-    [events, bank]
-  );
-
-  const cashAsExpense = useMemo(
-    () => (events.find((event) => event.policyKey === "cash")?.effectiveExpense ?? 0) > 0,
-    [events]
-  );
+  const resolveMutation = useMutation({
+    mutationFn: (payload: { eventId: string; action: ResolveAction; relatedEventId: string | null }) =>
+      api.resolveEvent(payload.eventId, {
+        action: payload.action,
+        related_event_id: payload.relatedEventId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+    },
+    onError: () => {
+      toast.error("Не удалось сохранить решение");
+    },
+  });
 
   const needsAttention = useMemo(
-    () => events.filter((event) => event.status === "needs_attention"),
-    [events]
+    () => (attention.data?.items ?? []).map(mapAttentionItem),
+    [attention.data]
   );
 
-  const value = useMemo<FinanceContextValue>(
-    () => ({
-      today: demoToday,
-      events,
-      accounts,
-      connectedBanks,
+  const resolve = useCallback(
+    (eventId: string, id: string) => {
+      const event = needsAttention.find((item) => item.id === eventId);
+      const option = event?.options?.find((item) => item.id === id);
+      if (!option) return;
+
+      // «Позже» — это отказ отвечать, запрос не нужен
+      if (option.action === "later") return;
+
+      resolveMutation.mutate({
+        eventId,
+        action: option.action as ResolveAction,
+        relatedEventId: option.relatedEventId,
+      });
+    },
+    [needsAttention, resolveMutation]
+  );
+
+  /**
+   * У бэкенда нет разбора произвольного текста, поэтому свой вариант
+   * сопоставляем с предложенными действиями по ключевым словам.
+   * Если уверенного совпадения нет — честно просим выбрать вариант.
+   */
+  const resolveCustom = useCallback(
+    (eventId: string, text: string) => {
+      const event = needsAttention.find((item) => item.id === eventId);
+      if (!event?.options?.length) return;
+
+      const query = text.trim().toLowerCase();
+      const KEYWORDS: Record<string, string[]> = {
+        income: ["доход", "зарплат", "премия", "кэшбэк", "подарок"],
+        expense: ["трата", "расход", "покупка", "потратил"],
+        own_transfer: ["себе", "свой счет", "свой счёт", "перевод себе", "между счет"],
+        debt_given: ["в долг", "занял", "одолжил"],
+        debt_repayment: ["вернул долг", "отдал долг", "долг"],
+        shared_expense_repayment: ["скинул", "общий", "за ужин", "за обед", "доля", "компенс"],
+        refund: ["возврат", "вернули товар", "отмена"],
+      };
+
+      const byLabel = event.options.find(
+        (option) => query.length > 2 && option.label.toLowerCase().includes(query)
+      );
+
+      const byKeyword = event.options.find((option) =>
+        (KEYWORDS[option.action] ?? []).some((word) => query.includes(word))
+      );
+
+      const match = byLabel ?? byKeyword;
+
+      if (!match) {
+        toast.error("Не понял ответ — выберите вариант выше");
+        return;
+      }
+
+      toast.success(`Записали как «${match.label}»`);
+      resolve(eventId, match.id);
+    },
+    [needsAttention, resolve]
+  );
+
+  const summary = useMemo(
+    () =>
+      dashboard.data
+        ? mapSummary(period, today, dashboard.data.summary, dashboard.data.comparison)
+        : emptySummary(period, today),
+    [dashboard.data, period, today]
+  );
+
+  const value = useMemo<FinanceContextValue>(() => {
+    const accounts = (dashboard.data?.accounts ?? []).map(mapAccount);
+
+    return {
+      today,
       period,
       setPeriod,
-      bank,
-      setBank,
-      isSyncing,
-      visibleEvents,
       summary,
-      needsAttention,
-      lastDelta,
-      resolve,
-      resolveCustom,
-      cashAsExpense,
-      setCashAsExpense,
-      connectBank,
-    }),
-    [
-      events,
-      connectedBanks,
-      period,
+      events: (dashboard.data?.recent_events ?? []).map(mapEvent),
       accounts,
-      bank,
-      isSyncing,
-      visibleEvents,
-      summary,
+      totalBalance: (dashboard.data?.total_balance_minor ?? 0) / 100,
+      lastSyncedAt: dashboard.data?.last_synced_at ?? null,
       needsAttention,
-      lastDelta,
+      outstandingDebt: (digest.data?.outstanding_debt_minor ?? 0) / 100,
+      cashPolicy: dashboard.data?.cash_policy ?? "expense_on_withdrawal",
+      isLoading: dashboard.isLoading,
+      isSyncing: dashboard.isFetching || resolveMutation.isPending,
+      isEmpty: Boolean(dashboard.data) && accounts.length === 0,
+      error: dashboard.error,
       resolve,
       resolveCustom,
-      cashAsExpense,
-      setCashAsExpense,
-      connectBank,
-    ]
-  );
+      refresh: () => queryClient.invalidateQueries({ queryKey: ["finance"] }),
+    };
+  }, [
+    dashboard.data,
+    dashboard.isLoading,
+    dashboard.isFetching,
+    dashboard.error,
+    digest.data,
+    needsAttention,
+    period,
+    resolve,
+    resolveCustom,
+    resolveMutation.isPending,
+    summary,
+    today,
+    queryClient,
+  ]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 };
