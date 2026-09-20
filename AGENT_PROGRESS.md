@@ -168,6 +168,30 @@ Agents: when you start work, append an `[IN PROGRESS]` section below.
 
 ---
 
+## [DONE] Фронтенд подключён к бэкенду
+
+Agent: Claude (frontend)
+Completed: 2026-09-20
+
+Что сделано:
+- Слой API: `entities/finance/api/{dto,client}.ts` — типы из `/api/openapi.json` и запросы через существующий `apiProtected` (Bearer + refresh уже были).
+- Маппинг бэкенд → UI: `entities/finance/model/mappers.ts` (копейки → рубли, snake_case → модель экранов,英 категории → русские подписи, дневной timeline → ряды графика).
+- `FinanceProvider` переписан на react-query: `/dashboard`, `/attention`, `/digest`; мутация `/events/{id}/resolve` инвалидирует кэш — пересчёт виден сразу.
+- Экраны на живых данных: главная, события (`/events` за период), карточка события (`/events/{id}` + Money Graph из реальных операций), аналитика (`/analytics`), счета (`/accounts` + `/banks` + `connect-and-sync`), профиль (метрики из `/events` и summary).
+- Онбординг: «Взять демо-выписку» → `POST /demo/load`; свой PDF → `POST /accounts` + `POST /imports/tbank`; шаг сервисов показывает `GET /integrations`; итоговый экран — числа из `ImportResult` и `/dashboard`.
+- Гейт онбординга теперь по данным сервера (есть ли счета), локальный флаг остался только для «пройти заново».
+- Мок-датасет удалён (`entities/finance/model/dataset.ts`, `analytics.ts`).
+- Починен билд бэкенда: `pyproject.toml` содержал `pymupdf`, но `poetry.lock` не пересобирали — `docker compose build backend` падал.
+
+Проверено вживую (docker, реальный пользователь):
+- регистрация → онбординг → демо-импорт (70 операций) → главная с числами бэкенда (50 198 ₽ списаний → 15 598 ₽ реальных трат);
+- ответ на вопрос в карточке «Нужно решить» → карточка исчезает, суммы пересчитываются;
+- все пять вкладок открываются без ошибок JS и 4xx.
+
+Не реализовано (нужны решения бэкенда) — см. раздел «Открытые вопросы» ниже.
+
+---
+
 # Entry template
 
 ## [IN PROGRESS] Task name

@@ -1,6 +1,6 @@
 # Fullstack monolith application template
 
-## Honest Month backend
+## PALATA backend
 
 Financial MVP API, demo walkthrough and frontend contracts: [docs/BACKEND_API.md](docs/BACKEND_API.md).
 Swagger: `/api/docs`. Load 70 demo operations with authenticated `POST /api/v1/demo/load`.
