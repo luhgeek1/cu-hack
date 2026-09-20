@@ -1,15 +1,15 @@
 import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Camera, Check, ChevronRight, ImagePlus, LogOut, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Camera, Check, ChevronRight, ImagePlus, LogOut, Pencil, Trash2, Upload } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
 import { financeApi, periodRange, useFinance } from "@/entities/finance";
 import { bankMeta } from "@/entities/finance/ui/meta";
+import { ImportStatementSheet } from "@/features/imports/ui/ImportStatementSheet";
 import { InsightsCard } from "@/features/insights/ui/InsightsCard";
-import { resetOnboarding } from "@/features/onboarding/model/storage";
 import { useProfile, useUpdateProfile, useUploadAvatar } from "@/features/profile/useProfile";
 import { money, percent } from "@/shared/lib/format";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
@@ -30,7 +30,6 @@ const PRESET_AVATARS = [
 
 export default function ProfilePage() {
   const auth = useAuth();
-  const navigate = useNavigate();
   const { data: profile } = useProfile();
   const { mutate: upload, isPending: isUploading } = useUploadAvatar();
   const { mutate: save, isPending: isSaving } = useUpdateProfile();
@@ -39,6 +38,7 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [name, setName] = useState("");
 
   const [localAvatar, setLocalAvatar] = useState<string | null>(() => {
@@ -241,17 +241,14 @@ export default function ProfilePage() {
 
           <button
             type="button"
-            onClick={() => {
-              resetOnboarding(email);
-              navigate("/onboarding");
-            }}
+            onClick={() => setImportOpen(true)}
             className="flex w-full items-center justify-between border-t border-line px-4 py-4 text-left transition-colors hover:bg-raised/50"
           >
             <span>
               <span className="block text-[14.5px] font-medium">Загрузить новую выписку</span>
-              <span className="mt-0.5 block text-[12.5px] text-fg-faint">Пройти разбор заново</span>
+              <span className="mt-0.5 block text-[12.5px] text-fg-faint">JSON с операциями</span>
             </span>
-            <RotateCcw className="size-4 text-fg-faint" />
+            <Upload className="size-4 text-fg-faint" />
           </button>
         </div>
       </section>
@@ -259,6 +256,8 @@ export default function ProfilePage() {
       <p className="mt-6 px-6 text-center text-[11.5px] text-fg-faint">
         Palata · данные за сентябрь
       </p>
+
+      <ImportStatementSheet open={importOpen} onClose={() => setImportOpen(false)} />
 
       {/* Photo change bottom sheet */}
       <BottomSheet open={photoSheetOpen} onClose={() => setPhotoSheetOpen(false)} title="Фото профиля">
