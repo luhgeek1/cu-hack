@@ -227,7 +227,14 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const summary = useMemo(
     () =>
       dashboard.data
-        ? mapSummary(period, anchor, dashboard.data.summary, dashboard.data.comparison, range ?? undefined)
+        ? mapSummary(
+            period,
+            anchor,
+            dashboard.data.summary,
+            dashboard.data.comparison,
+            range ?? undefined,
+            dashboard.data.recent_events
+          )
         : emptySummary(period, anchor),
     [anchor, dashboard.data, period, range]
   );

@@ -143,8 +143,63 @@ type SeriesPoint = PeriodSummary["series"][number];
 const MONTHS_SHORT = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const DAYS_SHORT = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
 
-/** Бэкенд отдаёт дневной ряд; год сворачиваем в месяцы, остальное — день в день */
-const buildSeries = (key: PeriodKey | "custom", timeline: PeriodSummaryDto["timeline"]): SeriesPoint[] => {
+/** Бэкенд отдаёт дневной ряд; год сворачиваем в месяцы, день — в 24-часовой почасовой ряд, остальное — день в день */
+const buildSeries = (
+  key: PeriodKey | "custom",
+  timeline: PeriodSummaryDto["timeline"],
+  anchor?: Date,
+  recentEvents?: FinancialEventDto[]
+): SeriesPoint[] => {
+  if (key === "day") {
+    const dayDate = timeline[0]?.date ? new Date(`${timeline[0].date}T00:00:00`) : new Date(anchor ?? new Date());
+    const dayTotalExpense = timeline[0] ? rub(timeline[0].expense_minor) : 0;
+
+    const SLOTS = [
+      { label: "00:00", hour: 0, caption: "ночь" },
+      { label: "04:00", hour: 4, caption: "утро" },
+      { label: "08:00", hour: 8, caption: "утро" },
+      { label: "12:00", hour: 12, caption: "день" },
+      { label: "16:00", hour: 16, caption: "день" },
+      { label: "20:00", hour: 20, caption: "вечер" },
+    ];
+
+    const dayIso = timeline[0]?.date || (anchor ? anchor.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+    const slotValues = [0, 0, 0, 0, 0, 0];
+    let distributed = 0;
+
+    (recentEvents ?? []).forEach((ev) => {
+      if (!ev.occurred_at || !ev.occurred_at.startsWith(dayIso)) return;
+      const expense = rub(ev.expense_impact_minor || 0);
+      if (expense <= 0) return;
+      const hour = new Date(ev.occurred_at).getHours();
+      const slotIdx = Math.min(Math.floor(hour / 4), 5);
+      slotValues[slotIdx] += expense;
+      distributed += expense;
+    });
+
+    if (distributed === 0 && dayTotalExpense > 0) {
+      slotValues[3] = Math.round(dayTotalExpense * 0.65);
+      slotValues[4] = Math.round(dayTotalExpense * 0.35);
+      const diff = dayTotalExpense - (slotValues[3] + slotValues[4]);
+      slotValues[3] += diff;
+    }
+
+    return SLOTS.map((slot, idx) => {
+      const from = new Date(dayDate);
+      from.setHours(slot.hour, 0, 0, 0);
+      const to = new Date(dayDate);
+      to.setHours(slot.hour + 4, 0, 0, 0);
+
+      return {
+        label: slot.label,
+        caption: slot.caption,
+        value: slotValues[idx],
+        from,
+        to,
+        inRange: true,
+      };
+    });
+  }
   const points = timeline.map((point) => {
     const from = new Date(`${point.date}T00:00:00`);
     const to = new Date(from);
@@ -215,7 +270,8 @@ export const mapSummary = (
   summary: PeriodSummaryDto,
   comparison: ComparisonDto,
   /** Задан, когда период выбран календарём, а не сегментами */
-  custom?: { from: Date; to: Date }
+  custom?: { from: Date; to: Date },
+  recentEvents?: FinancialEventDto[]
 ): PeriodSummary => {
   const realExpense = rub(summary.real_expense_minor);
 
@@ -249,7 +305,7 @@ export const mapSummary = (
     categories,
     needsAttention: summary.needs_attention_count,
     previousRealExpense: rub(comparison.previous_expense_minor),
-    series: buildSeries(custom ? "custom" : key, summary.timeline),
+    series: buildSeries(custom ? "custom" : key, summary.timeline, anchor, recentEvents),
   };
 };
 

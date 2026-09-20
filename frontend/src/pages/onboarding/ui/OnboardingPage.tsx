@@ -15,14 +15,13 @@ import { ProcessingSteps } from "@/features/onboarding/ui/ProcessingSteps";
 import { money } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
-type Step = "upload" | "reading" | "services" | "parsing" | "done";
+type Step = "upload" | "services" | "parsing" | "done";
 
 const STEP_INDEX: Record<Step, number> = {
   upload: 1,
-  reading: 2,
-  services: 3,
-  parsing: 4,
-  done: 4,
+  services: 2,
+  parsing: 3,
+  done: 3,
 };
 
 const SERVICES = [
@@ -148,6 +147,7 @@ export default function OnboardingPage() {
   const bankSpent = statementBankSpent || dashboardBankSpent || summary.bankSpent;
   const realExpense = dashboardRealExpense || statementBankSpent || summary.realExpense;
   const operationCount = importedStatement?.transactions.length ?? result?.imported_count ?? 0;
+  const isImporting = importStatement.isPending || loadDemo.isPending;
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-ink">
@@ -157,11 +157,11 @@ export default function OnboardingPage() {
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-raised">
             <motion.div
               className="h-full rounded-full bg-sage"
-              animate={{ width: `${(STEP_INDEX[step] / 4) * 100}%` }}
+              animate={{ width: `${(STEP_INDEX[step] / 3) * 100}%` }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             />
           </div>
-          <span className="tnum text-[12px] text-fg-faint">{STEP_INDEX[step]}/4</span>
+          <span className="tnum text-[12px] text-fg-faint">{STEP_INDEX[step]}/3</span>
         </div>
 
         <AnimatePresence mode="wait">
@@ -243,44 +243,27 @@ export default function OnboardingPage() {
                 <div className="mt-auto space-y-2 pt-8">
                   <button
                     type="button"
-                    disabled={!file}
+                    disabled={!file || isImporting}
                     onClick={() => {
                       if (!file) return;
-                      setStep("reading");
                       importStatement.mutate(file);
                     }}
                     className="w-full rounded-2xl bg-sage px-4 py-4 text-[15px] font-semibold text-white transition-opacity disabled:opacity-35"
                   >
-                    Продолжить
+                    {importStatement.isPending ? "Читаем выписку…" : "Продолжить"}
                   </button>
                   <button
                     type="button"
+                    disabled={isImporting}
                     onClick={() => {
                       setFileName(DEMO_FILE);
                       setFileSize(null);
-                      setStep("reading");
                       loadDemo.mutate();
                     }}
-                    className="w-full py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg"
+                    className="w-full py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg disabled:opacity-35"
                   >
-                    Взять демо-выписку
+                    {loadDemo.isPending ? "Готовим демо-выписку…" : "Взять демо-выписку"}
                   </button>
-                </div>
-              </>
-            ) : null}
-
-            {step === "reading" ? (
-              <>
-                <h1 className="text-[24px] font-bold leading-tight -tracking-[0.02em]">
-                  Читаем выписку
-                </h1>
-                <p className="mt-2 truncate text-[14px] text-fg-muted">{fileName}</p>
-
-                <div className="mt-6 w-full">
-                  <ProcessingSteps
-                    steps={["Открываем PDF", "Находим операции", "Приводим к одному формату"]}
-                    onDone={() => setStep("services")}
-                  />
                 </div>
               </>
             ) : null}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Check, Loader2 } from "lucide-react";
 
@@ -15,15 +15,19 @@ type ProcessingStepsProps = {
 export const ProcessingSteps = ({ steps, pace = 750, onDone }: ProcessingStepsProps) => {
   const [done, setDone] = useState(0);
 
+  // Колбэк держим в ref: иначе новый инлайн-обработчик родителя сбрасывал таймер шага
+  const finishRef = useRef(onDone);
+  finishRef.current = onDone;
+
   useEffect(() => {
     if (done >= steps.length) {
-      const finish = window.setTimeout(onDone, 500);
+      const finish = window.setTimeout(() => finishRef.current(), 500);
       return () => window.clearTimeout(finish);
     }
 
     const next = window.setTimeout(() => setDone((current) => current + 1), pace);
     return () => window.clearTimeout(next);
-  }, [done, steps.length, pace, onDone]);
+  }, [done, steps.length, pace]);
 
   return (
     <ul className="space-y-1">

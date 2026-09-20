@@ -45,33 +45,36 @@ export const EventRow = ({ event, onSelect }: EventRowProps) => {
             onSelect(event);
           }
         }}
-        className="group my-2 w-full cursor-pointer rounded-2xl border border-sage/35 bg-gradient-to-b from-sage-dim/70 to-raised p-3.5 text-left transition-colors hover:border-sage/55"
+        className="w-full text-left my-2.5 rounded-2xl border border-emerald-500/40 bg-[#121616] hover:bg-[#151a1a] p-3.5 relative overflow-hidden transition-colors active:scale-[0.99] cursor-pointer group"
       >
-        <div className="mb-2.5 flex items-center justify-between">
-          <span className="flex items-center gap-2 text-[12.5px] text-sage-strong">
-            <span className="size-1.5 rounded-full bg-sage-strong" />
-            Нужно решить
+        {/* Top Header Badge */}
+        <div className="flex items-center justify-between mb-2.5 relative z-10">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10.5px] font-bold uppercase tracking-wider border border-emerald-500/30">
+            <span className="size-1.5 rounded-full bg-emerald-400" />
+            Требует внимания
           </span>
 
-          <span className="flex items-center gap-0.5 text-[12.5px] text-fg-muted transition-colors group-hover:text-fg">
+          <span className="flex items-center gap-0.5 text-[11.5px] font-semibold text-emerald-400 group-hover:text-emerald-300 transition-colors">
             Решить
-            <ChevronRight className="size-3.5" />
+            <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-sage-strong">
-            <HelpCircle className="size-[18px]" strokeWidth={1.8} />
+        {/* Main transaction details row */}
+        <div className="flex items-center gap-3 relative z-10">
+          {/* Question circle icon */}
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 group-hover:scale-105 transition-transform">
+            <HelpCircle className="size-5 text-emerald-400" strokeWidth={2} />
           </span>
 
           <div className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-semibold">{event.title}</span>
-            <span className="mt-0.5 block truncate text-[12.5px] text-fg-muted">
+            <span className="block truncate text-[15px] font-semibold text-fg">{event.title}</span>
+            <span className="mt-0.5 block truncate text-[12.5px] text-emerald-400/80">
               {event.question || event.subtitle || "Что это за операция?"}
             </span>
           </div>
 
-          <span className="tnum shrink-0 text-[15px] font-semibold text-fg">{amount.text}</span>
+          <span className="tnum shrink-0 text-[15px] font-bold text-emerald-400">{amount.text}</span>
         </div>
 
         {event.options && event.options.length > 0 && resolveFn && (
