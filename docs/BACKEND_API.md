@@ -34,6 +34,8 @@
 
 `GET /api/v1/insights` принимает те же `period`, `date`, `start_date`, `end_date`, `timezone`, что `/analytics`, и возвращает максимум пять советов. В DSLab передаются только server-calculated aggregates: итоги периода, сравнение, категории и дневной ряд, без ФИО, реквизитов, описаний выписки или raw-транзакций. Модель не меняет операции и не вычисляет итоговые деньги. Для включения задать `DSLAB_API_KEY`, `DSLAB_BASE_URL` (по умолчанию `https://api.dslab.tech/v1`) и при необходимости `DSLAB_VOICE_MODEL`; ключ никогда не передаётся фронтенду.
 
+`POST /api/v1/imports/tbank/ai-preview?account_id=...` принимает ту же выписку, что обычный preview. Сначала сервер локально проверяет структуру и totals, затем отправляет в DSLab очищенные batches normalized JSON-операций. В них нет `account_id`, номера карты, контрагента, ФИО, адреса и длинных числовых идентификаторов. Модель возвращает только `kind`, категорию, confidence, rationale и необязательную связь с другой `external_id`; предложения относятся только к строкам исходной выписки. Preview не импортирует и не компенсирует ничего автоматически. После обычного импорта фронтенд показывает предложения рядом с `/attention`, а пользователь подтверждает подходящее действие через `/events/{id}/resolve`.
+
 ### Покупки Ozon, Wildberries, Яндекс Маркета
 
 Это **импорт данных покупателя**, не seller API и не живая OAuth-синхронизация. `GET /api/v1/integrations` честно возвращает `mode=file_import`, `live_sync_available=false` и число импортированных/связанных заказов. Официальная документация Яндекс Маркета описывает API продавцов: https://yandex.ru/dev/market/partner-api/doc/ru/ . Проверка страниц WB была заблокирована HTTP 498, Ozon — таймаут; доступ к buyer-history API не подтверждён.
@@ -145,6 +147,7 @@ Content-Type: application/json
 | POST | `/accounts` | Создать собственный счёт для импорта |
 | POST | `/imports` | Импорт JSON, максимум 2000 операций |
 | POST | `/imports/csv?account_id={id}` | Multipart поле `file`, UTF-8 CSV, максимум 1 MiB/2000 строк |
+| POST | `/imports/tbank/ai-preview?account_id={id}` | Проверенный PDF/text preview и AI-предложения, без записи |
 | POST | `/voice/preview?account_id={id}` | Audio-to-JSON draft и кандидаты сопоставления, без записи |
 | POST | `/voice/confirm` | Подтвердить связь с расходом или импорт новой voice-операции |
 | GET | `/transactions` | Исходные операции; фильтр `account_id` |

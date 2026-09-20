@@ -2,7 +2,7 @@ from datetime import date
 
 from pydantic import Field
 
-from .schemas import Contract, ImportResult, Money, TransactionInput
+from .schemas import Category, Contract, EventType, ImportResult, Money, TransactionInput
 
 
 class StatementPreview(Contract):
@@ -25,3 +25,18 @@ class StatementPreview(Contract):
 class StatementResult(Contract):
     import_result: ImportResult
     statement: StatementPreview
+
+
+class StatementAiSuggestion(Contract):
+    external_id: str
+    kind: EventType
+    category: Category | None = None
+    confidence: float = Field(ge=0, le=1)
+    reason: str = Field(min_length=1, max_length=500)
+    related_external_id: str | None = None
+
+
+class StatementAiPreview(Contract):
+    statement: StatementPreview
+    suggestions: list[StatementAiSuggestion] = Field(default_factory=list)
+    requires_confirmation: bool = True

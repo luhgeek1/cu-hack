@@ -17,12 +17,13 @@ from domain.finance.schemas import (
 from service.finance.analytics import period_bounds
 from service.finance.importer import parse_csv
 from service.finance.service import FinanceService
-from domain.finance.statements import StatementPreview, StatementResult
+from domain.finance.statements import StatementAiPreview, StatementPreview, StatementResult
 from service.finance.statements import parse_tbank_pdf, parse_tbank_text
 from starlette.concurrency import run_in_threadpool
 from domain.finance.marketplaces import IntegrationView, Marketplace, OrderImport, OrderImportResult, OrderLink, OrderView
 from service.finance.marketplaces import MarketplaceService
 from service.finance.insights import DSLabInsightGateway, SpendingInsightService
+from service.finance.statement_ai import DSLabStatementAiGateway, StatementAiService
 from service.finance.voice import DSLabVoiceGateway, VoiceService
 
 router = APIRouter(tags=["Honest Month"])
@@ -60,6 +61,16 @@ def get_insight_service():
 
 
 Insights = Annotated[SpendingInsightService, Depends(get_insight_service)]
+
+
+def get_statement_ai_service():
+    settings = get_settings()
+    if not settings.DSLAB_API_KEY:
+        raise UnprocessableEntityError("Statement AI is not configured")
+    return StatementAiService(DSLabStatementAiGateway(settings.DSLAB_API_KEY, settings.DSLAB_BASE_URL, settings.DSLAB_VOICE_MODEL))
+
+
+StatementAI = Annotated[StatementAiService, Depends(get_statement_ai_service)]
 
 
 @router.get("/integrations", response_model=list[IntegrationView])
@@ -169,6 +180,15 @@ async def preview_statement(account_id: UUID, file: UploadFile, svc: Service):
         from core.errors import NotFoundError
         raise NotFoundError("Account not found")
     return await read_statement(file, account_id)
+
+
+@router.post("/imports/tbank/ai-preview", response_model=StatementAiPreview)
+async def preview_statement_ai(account_id: UUID, file: UploadFile, svc: Service, statement_ai: StatementAI):
+    if account_id not in {a.id for a in await svc.accounts()}:
+        from core.errors import NotFoundError
+        raise NotFoundError("Account not found")
+    statement = await read_statement(file, account_id)
+    return await run_in_threadpool(statement_ai.preview, statement)
 
 
 async def read_statement(file, account_id):

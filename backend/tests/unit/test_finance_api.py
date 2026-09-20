@@ -8,13 +8,14 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from api.v1.finance.router import router, get_finance_service, current_finance_user, get_insight_service, get_voice_service
+from api.v1.finance.router import router, get_finance_service, current_finance_user, get_insight_service, get_statement_ai_service, get_voice_service
 from core.config import get_settings
 from core.error_handling import register_exception_handlers
 from database.relational_db.tables.finance import FinanceAccount, FinanceTransaction, FinanceEvent, FinanceEventLink, MarketplaceOrder
 from database.relational_db.tables.users.users_table import User
 from service.finance.service import FinanceService
 from service.finance.insights import SpendingInsightService
+from service.finance.statement_ai import StatementAiService
 from service.finance.voice import VoiceService
 
 
@@ -280,6 +281,27 @@ async def test_insights_use_server_calculated_spending_dynamics(finance_api):
     body = response.json()
     assert body["basis"]["real_expense_minor"] > 0
     assert body["insights"][0]["category"] == "restaurants"
+
+
+@pytest.mark.asyncio
+async def test_statement_ai_preview_returns_suggestions_without_importing_transactions(finance_api):
+    from tests.unit.test_statements import FOOTER, HEADER, ROW
+
+    client, _, _ = finance_api
+    account = (await client.post("/api/v1/accounts", json={"external_id": "statement-ai", "bank": "tbank", "name": "Statement AI"})).json()
+
+    class Gateway:
+        def classify(self, transactions):
+            return [{"external_id": transactions[1]["external_id"], "kind": "expense", "category": "groceries",
+                     "confidence": 0.92, "reason": "Grocery merchant", "related_external_id": None}]
+
+    client._transport.app.dependency_overrides[get_statement_ai_service] = lambda: StatementAiService(Gateway())
+    response = await client.post(f"/api/v1/imports/tbank/ai-preview?account_id={account['id']}", files={
+        "file": ("statement.txt", (HEADER + ROW + FOOTER).encode(), "text/plain"),
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["suggestions"][0]["category"] == "groceries"
+    assert (await client.get("/api/v1/transactions")).json()["total"] == 0
 
 
 @pytest.mark.asyncio
