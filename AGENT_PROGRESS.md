@@ -408,3 +408,19 @@ Files: frontend/src/features/auth/ui/OnboardingArtwork.tsx, silver-orbit.css, pa
 Validation: all eight screens visited with Playwright and mocked auth; clear auth form and blurred content screens confirmed; canvas identity preserved across onboarding steps; 320px viewport has no horizontal overflow; no browser exceptions. Final build passed in /tmp/onboarding-art-check (HEAD snapshot plus artwork changes).
 Integration note: concurrent edits removed finance analytics/dataset and their exports during final verification, temporarily breaking the shared workspace build. Those unrelated edits were preserved. Isolated verification uses the existing HEAD finance module.
 API/contracts: unchanged.
+
+## [DONE] Align onboarding processing steps below heading
+Agent: Codex
+Completed: 2026-09-20
+Implemented: moved the reading and parsing step lists from vertical centering into the normal layout flow, directly below their descriptions with a consistent 24px gap.
+Files: frontend/src/pages/onboarding/ui/OnboardingPage.tsx.
+Validation: frontend production build passed.
+API/contracts: unchanged.
+
+## [DONE] Interactive onboarding coin
+Agent: Codex
+Completed: 2026-09-20
+Implemented: cursor parallax, mouse and touch dragging, tap impulse, inertial release, spring lift/scale, and orbit counter-motion. Interactive controls over the artwork remain clickable; reduced-motion keeps the static scene.
+Files: frontend/src/features/auth/ui/{silver-orbit-scene.ts,silver-orbit.css}.
+Validation: production build passed; Chrome Pointer Events check confirmed mouse drag and CDP touch drag both capture and release without browser errors.
+API/contracts: unchanged.

@@ -111,10 +111,21 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
   let pointerY = 0;
   let tiltX = 0;
   let tiltY = 0;
+  let inertiaX = 0;
+  let inertiaY = 0;
+  let press = 0;
+  let pressTarget = 0;
+  let activePointer: number | null = null;
+  let pointerLastX = 0;
+  let pointerLastY = 0;
+  let pointerTravel = 0;
+  let hovering = false;
   const draw = () => {
     sculpture.rotation.set(.30 + Math.sin(elapsed * .3) * .10 + tiltY, -.42 + Math.sin(elapsed * .25) * .22 + tiltX, -.38 + Math.sin(elapsed * .2) * .06);
-    sculpture.position.y = Math.sin(elapsed * .7) * .075 + .06;
-    orbit.rotation.z = -.4 + elapsed * .055;
+    sculpture.position.y = Math.sin(elapsed * .7) * .075 + .06 + press * .06;
+    sculpture.position.z = press * .18;
+    sculpture.scale.setScalar(1 + press * .045);
+    orbit.rotation.z = -.4 + elapsed * .055 - tiltX * .18;
     satellite.position.set(Math.cos(elapsed * .22 + .6) * 1.55, Math.sin(elapsed * .22 + .6) * .8, .35);
     renderer.render(scene, camera);
   };
@@ -122,8 +133,19 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
     if (last && time - last < 1000 / 30) return;
     elapsed += last ? Math.min((time - last) / 1000, .1) : 0;
     last = time;
-    tiltX += (pointerX - tiltX) * .045;
-    tiltY += (pointerY - tiltY) * .045;
+    if (activePointer === null) {
+      pointerX = THREE.MathUtils.clamp(pointerX + inertiaX, -.95, .95);
+      pointerY = THREE.MathUtils.clamp(pointerY + inertiaY, -.7, .7);
+      inertiaX *= .9;
+      inertiaY *= .9;
+      if (!hovering && Math.abs(inertiaX) < .002 && Math.abs(inertiaY) < .002) {
+        pointerX *= .94;
+        pointerY *= .94;
+      }
+    }
+    tiltX += (pointerX - tiltX) * .12;
+    tiltY += (pointerY - tiltY) * .12;
+    press += (pressTarget - press) * .16;
     draw();
   };
   const syncAnimation = () => {
@@ -143,13 +165,78 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
     camera.updateProjectionMatrix();
     draw();
   };
-  const move = (event: PointerEvent) => {
-    if (event.pointerType !== "mouse" || reducedMotion.matches) return;
+  const isOverCoin = (event: PointerEvent) => {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest("button, input, a, select, textarea, [data-art-occluder]")
+    ) return false;
     const rect = host.getBoundingClientRect();
-    pointerX = ((event.clientX - rect.left) / rect.width - .5) * .24;
-    pointerY = ((event.clientY - rect.top) / rect.height - .5) * .14;
+    const x = (event.clientX - (rect.left + rect.width / 2)) / (rect.width * .44);
+    const y = (event.clientY - (rect.top + rect.height / 2)) / (rect.height * .44);
+    return x * x + y * y <= 1;
   };
-  const leave = () => { pointerX = 0; pointerY = 0; };
+  const move = (event: PointerEvent) => {
+    if (reducedMotion.matches) return;
+    const rect = host.getBoundingClientRect();
+    if (activePointer === event.pointerId) {
+      const dx = event.clientX - pointerLastX;
+      const dy = event.clientY - pointerLastY;
+      pointerLastX = event.clientX;
+      pointerLastY = event.clientY;
+      pointerTravel += Math.hypot(dx, dy);
+      const turnX = (dx / rect.width) * 2.5;
+      const turnY = (dy / rect.height) * 2;
+      pointerX = THREE.MathUtils.clamp(pointerX + turnX, -.95, .95);
+      pointerY = THREE.MathUtils.clamp(pointerY + turnY, -.7, .7);
+      inertiaX = turnX * .72;
+      inertiaY = turnY * .72;
+      event.preventDefault();
+      return;
+    }
+    if (event.pointerType === "mouse") {
+      if (!isOverCoin(event)) {
+        hovering = false;
+        return;
+      }
+      hovering = true;
+      inertiaX = 0;
+      inertiaY = 0;
+      pointerX = ((event.clientX - rect.left) / rect.width - .5) * .34;
+      pointerY = ((event.clientY - rect.top) / rect.height - .5) * .2;
+    }
+  };
+  const startInteraction = (event: PointerEvent) => {
+    if (reducedMotion.matches || activePointer !== null || !isOverCoin(event)) return;
+    activePointer = event.pointerId;
+    pointerLastX = event.clientX;
+    pointerLastY = event.clientY;
+    pointerTravel = 0;
+    inertiaX = 0;
+    inertiaY = 0;
+    pressTarget = 1;
+    hovering = false;
+    host.dataset.dragging = "true";
+    host.setPointerCapture(event.pointerId);
+  };
+  const endInteraction = (event: PointerEvent) => {
+    if (activePointer !== event.pointerId) return;
+    if (pointerTravel < 8) {
+      inertiaX += .075;
+      inertiaY -= .025;
+    }
+    activePointer = null;
+    pressTarget = 0;
+    delete host.dataset.dragging;
+    if (host.hasPointerCapture(event.pointerId)) host.releasePointerCapture(event.pointerId);
+  };
+  const leave = () => {
+    hovering = false;
+    if (activePointer === null) {
+      inertiaX = 0;
+      inertiaY = 0;
+    }
+  };
   const contextLost = (event: Event) => {
     event.preventDefault(); lost = true;
     renderer.setAnimationLoop(null);
@@ -160,8 +247,13 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
   resizeObserver.observe(host);
   const intersectionObserver = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; syncAnimation(); });
   intersectionObserver.observe(host);
-  host.addEventListener("pointermove", move);
-  host.addEventListener("pointerleave", leave);
+  host.dataset.interactive = "true";
+  window.addEventListener("pointerdown", startInteraction, true);
+  window.addEventListener("pointermove", move, true);
+  window.addEventListener("pointerup", endInteraction, true);
+  window.addEventListener("pointercancel", endInteraction, true);
+  host.addEventListener("lostpointercapture", endInteraction);
+  window.addEventListener("pointerleave", leave);
   renderer.domElement.addEventListener("webglcontextlost", contextLost);
   renderer.domElement.addEventListener("webglcontextrestored", contextRestored);
   document.addEventListener("visibilitychange", syncAnimation);
@@ -174,8 +266,12 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
     renderer.setAnimationLoop(null);
     resizeObserver.disconnect();
     intersectionObserver.disconnect();
-    host.removeEventListener("pointermove", move);
-    host.removeEventListener("pointerleave", leave);
+    window.removeEventListener("pointerdown", startInteraction, true);
+    window.removeEventListener("pointermove", move, true);
+    window.removeEventListener("pointerup", endInteraction, true);
+    window.removeEventListener("pointercancel", endInteraction, true);
+    host.removeEventListener("lostpointercapture", endInteraction);
+    window.removeEventListener("pointerleave", leave);
     document.removeEventListener("visibilitychange", syncAnimation);
     reducedMotion.removeEventListener("change", syncAnimation);
     renderer.domElement.removeEventListener("webglcontextlost", contextLost);
@@ -187,5 +283,7 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
     renderer.forceContextLoss();
     renderer.domElement.remove();
     delete host.dataset.ready;
+    delete host.dataset.interactive;
+    delete host.dataset.dragging;
   };
 }

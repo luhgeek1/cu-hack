@@ -179,13 +179,11 @@ export default function OnboardingPage() {
                 </h1>
                 <p className="mt-2 truncate text-[14px] text-fg-muted">{fileName}</p>
 
-                <div className="flex flex-1 items-center">
-                  <div className="w-full">
-                    <ProcessingSteps
-                      steps={["Открываем PDF", "Находим операции", "Приводим к одному формату"]}
-                      onDone={() => setStep("services")}
-                    />
-                  </div>
+                <div className="mt-6 w-full">
+                  <ProcessingSteps
+                    steps={["Открываем PDF", "Находим операции", "Приводим к одному формату"]}
+                    onDone={() => setStep("services")}
+                  />
                 </div>
               </>
             ) : null}
@@ -270,19 +268,17 @@ export default function OnboardingPage() {
                   Из операций восстанавливаем, что произошло на самом деле
                 </p>
 
-                <div className="flex flex-1 items-center">
-                  <div className="w-full">
-                    <ProcessingSteps
-                      pace={850}
-                      steps={[
-                        "Связываем переводы между счетами",
-                        "Находим возвраты и общие счета",
-                        "Считаем реальные траты",
-                        "Отмечаем, что нужно уточнить",
-                      ]}
-                      onDone={() => setStep("done")}
-                    />
-                  </div>
+                <div className="mt-6 w-full">
+                  <ProcessingSteps
+                    pace={850}
+                    steps={[
+                      "Связываем переводы между счетами",
+                      "Находим возвраты и общие счета",
+                      "Считаем реальные траты",
+                      "Отмечаем, что нужно уточнить",
+                    ]}
+                    onDone={() => setStep("done")}
+                  />
                 </div>
               </>
             ) : null}
