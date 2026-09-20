@@ -171,3 +171,42 @@ Files: finance schemas/services/routes/tests, new marketplace table/migration, d
 Decisions: supplied private statement is not a repository fixture; synthetic fixtures only. Preserve operation and posting dates and card-currency amount. Internal contract transfers are ambiguous without ownership evidence. Generic Y.M/YandexBank descriptors do not establish Yandex Market purchases. Public seller APIs do not imply buyer-history access; report import support honestly, not simulated live connection.
 Implemented: PDF/text preview/import with strict footer reconciliation, ordinal duplicate preservation, merchant aliases; marketplace buyer-order JSON import, candidate links, owner-scoped persistent linkage, item category enrichment without added expenses. Migration d42f20260920, pypdf dependency.
 Verification: 43 unit/API tests pass, including statement-to-order-to-analytics and reimport. Original binary PDF unavailable; parser tested using synthetic representations of supplied text/layout. Live marketplace sync is not available (seller APIs are not consumer purchase-history APIs).
+
+## [DONE] PDF statement parser
+
+Agent: Codex
+Started: 2026-09-20
+Completed: 2026-09-20
+
+Implemented:
+- Coordinate-aware parser for multi-page Russian bank statement PDFs with multiline descriptions.
+- Full statement JSON and normalized `/api/v1/imports` JSON with stable transaction IDs and integer kopecks.
+- Metadata extraction, Moscow timezone handling, CLI, OCR/text-layer error, and parser documentation.
+- Focused tests for multiple pages, line wrapping, comma/dot amounts, stable IDs, JSON serialization, and image-only input.
+
+Files changed:
+- `backend/src/parser_pdf/`
+- `backend/tests/unit/test_parser_pdf.py`
+- `backend/pyproject.toml`
+
+Dependencies:
+- PyMuPDF for coordinate-aware PDF text extraction.
+
+API/contracts added or changed:
+- `parse_pdf(bytes) -> Statement` and `Statement.to_import_dict(account_id)`.
+- No HTTP route changed; generated import JSON is accepted by the existing `POST /api/v1/imports` route.
+
+How to test:
+- `PYTHONPATH=src python -m pytest tests/unit/test_parser_pdf.py -q`
+- Local isolated execution passed all 3 parser scenarios; Python compilation and TOML parsing passed.
+
+Remaining issues:
+- The local environment lacks the existing backend dependencies (`boto3`) and package tools, so the full pytest suite could not start.
+- PyPI access failed with SSL EOF while trying to install Poetry; `poetry.lock` therefore still needs `poetry lock` in an environment with package access.
+- Text-layer PDFs are supported; scanned image-only PDFs require OCR before parsing.
+
+Follow-up fix:
+- Added a fixed UTC+03:00 fallback for `Europe/Moscow` when Windows Python has no IANA `tzdata` package.
+- Calibrated the six column boundaries against the supplied real T-Bank PDF and corrected reference-number extraction.
+- Real-file verification: 6 pages parsed, 115 transactions written to `backend/statement.json`.
+- Full statement JSON uses the backend money contract: integer kopecks such as `amount_minor=-12220`.
