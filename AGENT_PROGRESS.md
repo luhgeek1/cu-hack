@@ -261,6 +261,10 @@ Verification:
 
 Next task: frontend integration against docs/BACKEND_API.md; deploy existing compose and run demo steps.
 
+## [DONE] Mandatory seven scenarios and period reconciliation
+
+Updated withdrawal policy: no expense on withdrawal; a separate cash wallet receives the balance, and actual cash purchases are expenses. Added monthly four-part server reconciliation (1–7, 8–14, 15–21, 22–end), period review status, period-scoped attention and persisted later action. All seven exact demo scenarios covered, including debt progression and unknown incoming payment. Existing persisted events need an idempotent reimport/demo reload to adopt the new accounting policy. Verification: 50 unit/API tests pass; scoped Ruff passes.
+
 ## [DONE] T-Bank statements and marketplace purchase imports
 Agent: OpenCode, 2026-09-20
 Scope: bank PDF/text parser, reported-total reconciliation, statement metadata; buyer order imports for ozon/wildberries/yandex_market and transaction enrichment without duplicate spending.
@@ -307,6 +311,24 @@ Follow-up fix:
 - Calibrated the six column boundaries against the supplied real T-Bank PDF and corrected reference-number extraction.
 - Real-file verification: 6 pages parsed, 115 transactions written to `backend/statement.json`.
 - Full statement JSON uses the backend money contract: integer kopecks such as `amount_minor=-12220`.
+
+## [DONE] Voice matching and spending insights
+
+Agent: OpenCode, 2026-09-20
+
+Implemented:
+- `POST /api/v1/voice/preview` transcribes audio through an injected DSLab-compatible gateway, validates the JSON draft, and returns exact-amount, same-account expense candidates in a +/-3 day window without persistence.
+- `POST /api/v1/voice/confirm` revalidates a selected candidate before categorizing it or imports an explicitly confirmed new `source=voice` operation. It does not duplicate a matched bank expense.
+- `GET /api/v1/insights` sends only deterministic aggregate summary/comparison/category/timeline facts to the gateway and validates up to five text recommendations. AI never changes monetary data.
+- Added `openai`, locked dependencies, Windows-safe parser timezone fallback, and redacted parser fixture values.
+- Verified the supplied local T-Bank PDF: 65 pages, 1661 transactions, computed inflow 51765527 and outflow 51508099 kopecks match statement footer totals.
+
+Verification:
+- `pytest tests/unit/test_parser_pdf.py tests/unit/test_voice.py tests/unit/test_finance_api.py::test_voice_preview_matches_expense_and_confirmation_does_not_import_duplicate tests/unit/test_finance_api.py::test_insights_use_server_calculated_spending_dynamics -q` -> 10 passed.
+- Scoped Ruff and `poetry check --lock` passed.
+
+Remaining external configuration:
+- Replace the exposed DSLab key, set it only as `DSLAB_API_KEY`, and confirm that `DSLAB_VOICE_MODEL` supports OpenAI Responses `input_audio`. No request with the exposed key was made.
 
 ---
 

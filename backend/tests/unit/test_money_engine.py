@@ -90,11 +90,12 @@ def test_marketplace_topup_links_to_categorized_purchases():
     assert sum(link.amount_minor for e in purchases for link in e.funding_links) == 310000
 
 
-def test_cash_withdrawal_policy_is_expense_immediately():
+def test_cash_withdrawal_is_transfer_to_wallet():
     events = reconstruct(ACCOUNTS, [tx("cash", -500000, description="Снятие наличных в банкомате")])
     assert events[0].type == "cash_withdrawal"
     assert events[0].category == "cash"
-    assert total(events).real_expense_minor == 500000
+    assert total(events).real_expense_minor == 0
+    assert events[0].cash_wallet_delta_minor == 500000
 
 
 def test_demo_has_required_scenarios_and_periods_reconcile():
@@ -169,8 +170,8 @@ def test_demo_financial_totals_are_known_not_only_self_consistent():
     accounts, transactions = demo_dataset(uid("owner"), date(2026, 9, 1))
     summary = total(reconstruct(accounts, transactions))
     # 24 groceries: sum(25000 + day*713), 24 metro rides, 1600 own dinner,
-    # marketplace 4000, cash 5000, subscription 299; refunded purchase nets to zero.
-    assert summary.real_expense_minor == 2059800
+    # marketplace 4000, subscription 299; cash transfer and refunded purchase net to zero.
+    assert summary.real_expense_minor == 1559800
     assert summary.real_income_minor == 9500000
     assert summary.needs_attention_count == 1
 

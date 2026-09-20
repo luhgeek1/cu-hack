@@ -191,7 +191,7 @@ def _column_text(words: list[Word]) -> str:
 def _resolve_timezone(name: str) -> tzinfo:
     try:
         return ZoneInfo(name)
-    except (ValueError, ZoneInfoNotFoundError) as exc:
+    except (ValueError, ZoneInfoNotFoundError, ModuleNotFoundError) as exc:
         if name == "Europe/Moscow":
             return fixed_timezone(timedelta(hours=3), name)
         raise PdfParseError(f"Неизвестная временная зона: {name}") from exc

@@ -16,12 +16,12 @@ def _page(number, lines):
 
 def test_parses_multiline_rows_across_multiple_pages_and_builds_import_json():
     first = _page(1, [
-        _line(20, (55, "Исх."), (82, "№"), (95, "a7144630")),
-        _line(35, (55, "Зайцев"), (105, "Константин"), (175, "Андреевич")),
+        _line(20, (55, "Исх."), (82, "№"), (95, "test-reference")),
+        _line(35, (55, "Тестовый"), (105, "Пользователь")),
         _line(50, (55, "Адрес места жительства:"), (190, "Москва")),
         _line(70, (55, "Дата заключения договора:"), (220, "13.09.2023")),
-        _line(85, (55, "Номер договора:"), (165, "5260454676")),
-        _line(100, (55, "Номер лицевого счета:"), (190, "40817810400095910010")),
+        _line(85, (55, "Номер договора:"), (165, "0000000000")),
+        _line(100, (55, "Номер лицевого счета:"), (190, "40817810000000000001")),
         _line(115, (55, "Сумма доступного остатка на"), (235, "20.09.2026:"), (310, "4 381.08"), (370, "₽")),
         _line(130, (55, "Движение средств за период с"), (250, "20.08.2026"), (330, "по"), (350, "20.09.2026")),
         _line(200, (55, "20.09.2026"), (145, "20.09.2026"), (238, "-122.20 ₽"), (360, "-122.20 ₽"), (480, "Оплата в FUNPAY"), (620, "5377")),
@@ -39,7 +39,7 @@ def test_parses_multiline_rows_across_multiple_pages_and_builds_import_json():
     statement = parse_statement_pages([first, second])
 
     assert statement.page_count == 2
-    assert statement.info.account_number == "40817810400095910010"
+    assert statement.info.account_number == "40817810000000000001"
     assert statement.info.period_start == date(2026, 8, 20)
     assert statement.info.available_balance_minor == 438108
     assert [item.card_amount_minor for item in statement.transactions] == [-12220, 200, -6396]
@@ -50,6 +50,7 @@ def test_parses_multiline_rows_across_multiple_pages_and_builds_import_json():
     assert payload["transactions"][0]["account_id"] == "account-uuid"
     assert payload["transactions"][0]["amount_minor"] == -12220
     assert payload["transactions"][0]["external_id"].startswith("pdf-")
+    assert payload["transactions"][0]["source"] == "tbank_statement"
     assert statement.to_dict()["info"]["period_start"] == "2026-08-20"
     assert statement.to_dict()["transactions"][0]["operation_at"] == "2026-09-20T12:15:00+03:00"
 

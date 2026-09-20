@@ -45,8 +45,8 @@ def _initial(t: TransactionData) -> FinancialEvent:
             kind, expense, category = "debt_given", 0, "other"
             reason = "Выданный долг — дебиторская задолженность, а не расход."
         elif not action and contains(text, "снятие налич", "банкомат", "cash withdrawal"):
-            kind, category = "cash_withdrawal", "cash"
-            reason = "Политика MVP: наличные учитываются расходом при снятии; повторно наличные покупки не учитываются."
+            kind, category, expense = "cash_withdrawal", "cash", 0
+            reason = "Перевод в кошелёк наличных; расход возникает при наличной покупке."
         elif not action and not t.merchant:
             kind, status, confidence = "unknown", "needs_attention", 0.4
             reason = "Назначение перевода неизвестно. Пока учтен как предварительный расход."
@@ -56,7 +56,7 @@ def _initial(t: TransactionData) -> FinancialEvent:
         if action == "income" or (not action and contains(text, "зарплат", "salary", "заработная плата")):
             kind, status, confidence, income = "income", "auto", 0.99, t.amount_minor
             reason = "Доход: подтвержденный источник поступления."
-    if action:
+    if action and action != "later":
         status, confidence = "confirmed", 1.0
         if action == "expense":
             kind, expense = "expense", -t.amount_minor
@@ -65,7 +65,8 @@ def _initial(t: TransactionData) -> FinancialEvent:
                                 expense_minor=expense, income_minor=income, role="original", category=category)
     return FinancialEvent(id=t.id, type=kind, status=status, title=t.merchant or t.description or "Операция",
                           occurred_at=t.occurred_at, category=category, confidence=confidence, reason=reason,
-                          remaining_minor=-t.amount_minor if kind == "debt_given" else None,
+                           remaining_minor=-t.amount_minor if kind == "debt_given" else None,
+                           cash_wallet_delta_minor=-t.amount_minor if kind == "cash_withdrawal" else 0,
                           contributions=[contribution])
 
 
@@ -84,6 +85,10 @@ def reconstruct(accounts: list[AccountData], transactions: list[TransactionData]
             if action in {"income", "debt_repayment", "shared_expense_repayment", "refund"} and t.amount_minor < 0:
                 raise ValueError("This resolution requires an incoming operation")
     events = {t.id: _initial(t) for t in ordered}
+    for t in ordered:
+        events[t.id].contributions[0].is_cash = account_map[t.account_id].account_type == "cash"
+        if events[t.id].contributions[0].is_cash:
+            events[t.id].cash_wallet_delta_minor = 0
 
     def pair(debit, credit, manual=False):
         event = events[debit.id]
@@ -91,6 +96,7 @@ def reconstruct(accounts: list[AccountData], transactions: list[TransactionData]
         event.status, event.confidence = ("confirmed", 1.0) if manual else ("auto", 0.99)
         event.reason = "Сопоставлены списание и зачисление между своими счетами. Расход и доход равны нулю."
         event.contributions[0].expense_minor = 0
+        event.cash_wallet_delta_minor = 0
         event.contributions[0].role = "transfer_out"
         c = events.pop(credit.id).contributions[0]
         c.expense_minor = c.income_minor = 0
@@ -219,6 +225,6 @@ def reconstruct(accounts: list[AccountData], transactions: list[TransactionData]
         e.contributions.sort(key=lambda c: (c.occurred_at, str(c.transaction_id)))
         e.expense_impact_minor = sum(c.expense_minor for c in e.contributions)
         e.income_impact_minor = sum(c.income_minor for c in e.contributions)
-        e.bank_outflow_minor = sum(max(-c.amount_minor, 0) for c in e.contributions)
-        e.bank_inflow_minor = sum(max(c.amount_minor, 0) for c in e.contributions)
+        e.bank_outflow_minor = sum(max(-c.amount_minor, 0) for c in e.contributions if not c.is_cash)
+        e.bank_inflow_minor = sum(max(c.amount_minor, 0) for c in e.contributions if not c.is_cash)
     return sorted(events.values(), key=lambda e: (e.occurred_at, str(e.id)))

@@ -191,6 +191,9 @@ test.py
 /backend/statement.pdf
 /backend/statement.json
 
+# Local isolated worktrees
+/.worktrees/
+
 # Allow tracked frontend shared utilities
 !frontend/src/shared/lib/
 !frontend/src/shared/lib/**

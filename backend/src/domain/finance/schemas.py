@@ -12,7 +12,7 @@ EventStatus = Literal["auto", "needs_attention", "confirmed"]
 Category = Literal["groceries", "restaurants", "transport", "electronics", "household",
                    "subscriptions", "health", "shopping", "cash", "other"]
 ResolutionAction = Literal["expense", "income", "own_transfer", "debt_given", "debt_repayment",
-                           "shared_expense_repayment", "refund"]
+                           "shared_expense_repayment", "refund", "later"]
 
 
 class Contract(BaseModel):
@@ -23,7 +23,7 @@ class AccountCreate(Contract):
     external_id: str = Field(min_length=1, max_length=128)
     bank: str = Field(min_length=1, max_length=40)
     name: str = Field(min_length=1, max_length=120)
-    account_type: Literal["card", "marketplace"] = "card"
+    account_type: Literal["card", "marketplace", "cash"] = "card"
     currency: Literal["RUB"] = "RUB"
     opening_balance_minor: Money = 0
 
@@ -65,7 +65,7 @@ class TransactionInput(Contract):
     card_last4: str | None = Field(default=None, pattern=r"^\d{4}$")
     original_amount_minor: Money | None = None
     original_currency: str | None = Field(default=None, max_length=8)
-    source: Literal["manual", "tbank_statement"] = "manual"
+    source: Literal["manual", "tbank_statement", "voice"] = "manual"
 
     @model_validator(mode="after")
     def nonzero(self):
@@ -88,6 +88,7 @@ class Contribution(Contract):
     role: str
     category: Category = "other"
     category_allocations: dict[Category, int] = Field(default_factory=dict)
+    is_cash: bool = False
 
 
 class FundingLink(Contract):
@@ -114,6 +115,7 @@ class FinancialEvent(Contract):
     bank_outflow_minor: Money = 0
     bank_inflow_minor: Money = 0
     marketplace_orders: list[dict] = Field(default_factory=list)
+    cash_wallet_delta_minor: Money = 0
 
 
 class GraphNode(Contract):
@@ -184,10 +186,25 @@ class Comparison(Contract):
     expense_change_percent: float | None
 
 
+class Reconciliation(Contract):
+    parts: list[PeriodSummary]
+    expense_sum_minor: Money
+    income_sum_minor: Money
+    matches: bool
+
+
+class PeriodReview(Contract):
+    status: Literal["needs_attention", "complete"]
+    needs_attention_count: int
+    message: str
+
+
 class Analytics(Contract):
     summary: PeriodSummary
     comparison: Comparison
-    cash_policy: Literal["expense_on_withdrawal"] = "expense_on_withdrawal"
+    cash_policy: Literal["transfer_to_cash_wallet"] = "transfer_to_cash_wallet"
+    reconciliation: Reconciliation
+    review: PeriodReview
     accounting_policy: Literal["adjustments_on_receipt_date"] = "adjustments_on_receipt_date"
     last_synced_at: datetime | None = None
 
@@ -202,6 +219,13 @@ class ImportResult(Contract):
     event_count: int
     needs_attention_count: int
     synced_at: datetime
+
+
+class VoicePreview(Contract):
+    transcript: str = Field(min_length=1, max_length=4000)
+    transaction: TransactionInput
+    candidate_transaction_ids: list[UUID] = Field(default_factory=list)
+    requires_confirmation: bool = True
 
 
 class DemoRequest(Contract):
@@ -232,6 +256,36 @@ class ResolveResult(Contract):
     event: FinancialEvent
     needs_attention_count: int
     refresh: list[str] = Field(default_factory=lambda: ["events", "attention", "analytics", "digest"])
+
+
+class VoiceConfirmation(Contract):
+    transaction: TransactionInput
+    matched_transaction_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_voice_source(self):
+        if self.transaction.source != "voice":
+            raise ValueError("Voice confirmation requires a voice transaction")
+        return self
+
+
+class VoiceConfirmationResult(Contract):
+    matched_transaction_id: UUID | None = None
+    import_result: ImportResult | None = None
+    resolution: ResolveResult | None = None
+
+
+class SpendingInsight(Contract):
+    title: str = Field(min_length=1, max_length=120)
+    message: str = Field(min_length=1, max_length=500)
+    category: Category | None = None
+    action: str = Field(min_length=1, max_length=300)
+
+
+class SpendingAdvice(Contract):
+    basis: PeriodSummary
+    insights: list[SpendingInsight] = Field(min_length=1, max_length=5)
+    disclaimer: str = "Советы основаны на подтвержденной финансовой динамике и не являются финансовой консультацией."
 
 
 class Digest(Contract):

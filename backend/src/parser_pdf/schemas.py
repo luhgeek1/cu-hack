@@ -56,6 +56,7 @@ class StatementTransaction:
             "occurred_at": self.operation_at.isoformat(),
             "currency": "RUB",
             "description": self.description,
+            "source": "tbank_statement",
         }
 
 
