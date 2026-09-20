@@ -59,6 +59,7 @@ export default function EventsPage() {
 
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <Segmented
+            className="w-full sm:max-w-lg"
             layoutId="events-filter"
             value={filter}
             onChange={setFilter}

@@ -234,7 +234,7 @@ export const SpendAnalyticsChart: React.FC<SpendAnalyticsChartProps> = ({
                 tickFormatter={(val) => (val === 0 ? "0" : compactMoney(val))}
               />
 
-              <Tooltip content={<CustomTooltip average={average} />} />
+              <Tooltip content={<CustomTooltip average={average} />} cursor={false} />
 
               {average > 0 && (
                 <ReferenceLine
@@ -322,75 +322,83 @@ export const CategoryDonutChart: React.FC<CategoryDonutChartProps> = ({
     color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
   }));
 
+  const activeCategory = activeIndex !== null ? data[activeIndex] : null;
+
   return (
     <div className="flex flex-col sm:flex-row items-center gap-4">
       {/* Donut graphic with center total */}
-      <div className="relative size-[160px] shrink-0">
+      <div className="relative size-[170px] shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
-              innerRadius={52}
-              outerRadius={74}
+              innerRadius={54}
+              outerRadius={78}
               paddingAngle={3}
               dataKey="value"
+              onClick={(_, index) => setActiveIndex(activeIndex === index ? null : index)}
               onMouseEnter={(_, index) => setActiveIndex(index)}
-              onMouseLeave={() => setActiveIndex(null)}
             >
               {data.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={entry.color}
                   stroke="#0f1115"
-                  strokeWidth={2}
-                  className="transition-all cursor-pointer hover:opacity-80"
+                  strokeWidth={activeIndex === index ? 3 : 2}
+                  opacity={activeIndex !== null && activeIndex !== index ? 0.35 : 1}
+                  className="transition-all cursor-pointer"
+                  onClick={() => setActiveIndex(activeIndex === index ? null : index)}
                 />
               ))}
             </Pie>
-            <Tooltip
-              content={({ active, payload }) => {
-                if (!active || !payload || !payload.length) return null;
-                const d = payload[0].payload;
-                return (
-                  <div className="rounded-xl border border-line-strong bg-[#14171a]/95 p-2.5 shadow-xl backdrop-blur-xl">
-                    <p className="text-[11px] font-semibold text-fg-muted">{d.name}</p>
-                    <p className="tnum text-[14px] font-bold text-fg">{money(d.value)}</p>
-                    <p className="text-[10.5px] font-medium text-emerald-400">
-                      {percent(d.share)} от расходов
-                    </p>
-                  </div>
-                );
-              }}
-            />
           </PieChart>
         </ResponsiveContainer>
 
-        {/* Center label */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-[9.5px] font-bold uppercase tracking-wider text-fg-faint">
-            {activeIndex !== null ? data[activeIndex]?.name : "Всего"}
-          </span>
-          <span className="tnum text-[13px] font-black text-fg mt-0.5">
-            {activeIndex !== null ? compactMoney(data[activeIndex]?.value) : compactMoney(totalExpense)}
-          </span>
+        {/* Center label (pointer events none except inner button to reset) */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-2 text-center">
+          <button
+            type="button"
+            onClick={() => setActiveIndex(null)}
+            className="pointer-events-auto flex flex-col items-center justify-center rounded-full size-[100px] text-center transition-transform active:scale-95 cursor-pointer"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted truncate max-w-[84px]">
+              {activeCategory ? activeCategory.name : "Всего"}
+            </span>
+            <span className="tnum text-[14px] font-black text-fg mt-0.5">
+              {activeCategory ? compactMoney(activeCategory.value) : compactMoney(totalExpense)}
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-400 mt-0.5">
+              {activeCategory ? percent(activeCategory.share) : "расходы"}
+            </span>
+          </button>
         </div>
       </div>
 
       {/* Category List */}
-      <div className="min-w-0 flex-1 space-y-2.5 w-full">
+      <div className="min-w-0 flex-1 space-y-2 w-full">
         {data.slice(0, 5).map((item, idx) => (
-          <div
+          <button
             key={item.name}
-            className="flex items-center justify-between text-[12.5px] group cursor-pointer"
-            onMouseEnter={() => setActiveIndex(idx)}
-            onMouseLeave={() => setActiveIndex(null)}
+            type="button"
+            onClick={() => setActiveIndex(activeIndex === idx ? null : idx)}
+            className={cn(
+              "w-full flex items-center justify-between text-[12.5px] p-2 rounded-xl transition-all text-left cursor-pointer",
+              activeIndex === idx
+                ? "bg-raised border border-line-strong shadow-sm"
+                : "hover:bg-raised/50 border border-transparent"
+            )}
           >
             <div className="flex items-center gap-2 min-w-0">
               <span
                 className="size-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: item.color }}
               />
-              <span className="truncate text-fg-muted group-hover:text-fg transition-colors">
+              <span
+                className={cn(
+                  "truncate transition-colors",
+                  activeIndex === idx ? "text-fg font-semibold" : "text-fg-muted"
+                )}
+              >
                 {item.name}
               </span>
             </div>
@@ -400,7 +408,7 @@ export const CategoryDonutChart: React.FC<CategoryDonutChartProps> = ({
                 {percent(item.share)}
               </span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>

@@ -18,7 +18,7 @@ export const Segmented = <T extends string>({
   layoutId,
   className,
 }: SegmentedProps<T>) => (
-  <div className={cn("flex rounded-full bg-raised p-1", className)}>
+  <div className={cn("flex w-full items-center rounded-full bg-raised p-1", className)}>
     {options.map((option) => {
       const active = option.value === value;
       return (
@@ -27,8 +27,8 @@ export const Segmented = <T extends string>({
           type="button"
           onClick={() => onChange(option.value)}
           className={cn(
-            "relative flex-1 rounded-full px-3 py-2 text-[13px] font-medium transition-colors",
-            active ? "text-ink" : "text-fg-muted hover:text-fg"
+            "relative flex-1 rounded-full px-3.5 py-2 sm:py-2.5 text-[13px] sm:text-[13.5px] font-medium transition-colors whitespace-nowrap text-center select-none cursor-pointer",
+            active ? "text-ink font-semibold" : "text-fg-muted hover:text-fg"
           )}
         >
           {active ? (
