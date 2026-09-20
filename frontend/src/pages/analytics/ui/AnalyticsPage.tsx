@@ -57,15 +57,15 @@ export default function AnalyticsPage() {
 
   return (
     <>
-      <header className="px-5 pb-4 pt-5 safe-top">
+      <header className="px-5 md:px-0 pb-4 pt-5 safe-top">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-[22px] font-bold -tracking-[0.02em]">Аналитика</h1>
+          <h1 className="text-[22px] md:text-[26px] font-bold -tracking-[0.02em]">Аналитика</h1>
           <ActiveBankChip />
         </div>
         <Segmented className="mt-4" layoutId="analytics-period" value={period} onChange={setPeriod} options={PERIODS} />
       </header>
 
-      <section className="px-5">
+      <section className="px-5 md:px-0">
         <p className="text-[13px] text-fg-muted">Траты · {summary.label}</p>
         <AnimatedMoney value={summary.realExpense} className="block text-[38px] font-bold leading-tight" />
         {summary.previousRealExpense > 0 ? (
@@ -76,7 +76,7 @@ export default function AnalyticsPage() {
         ) : null}
       </section>
 
-      <section className="mt-6 px-5">
+      <section className="mt-6 px-5 md:px-0">
         <motion.div
           key={period}
           initial={{ opacity: 0, scale: zoomFrom }}
@@ -84,59 +84,57 @@ export default function AnalyticsPage() {
           transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
           style={{ transformOrigin: "bottom center" }}
         >
-          <div>
+          <div className="rounded-3xl border border-line bg-surface/80 p-4 md:p-6 shadow-sm">
             <div className="relative">
               {average > 0 ? (
                 <motion.div
+                  key={`avg-${period}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: 0.25, duration: 0.3 }}
-                  className="pointer-events-none absolute inset-x-0 z-10 flex items-center gap-2"
-                  style={{ bottom: `${(average / peak) * CHART_HEIGHT}px` }}
+                  transition={{ duration: 0.2 }}
+                  className="pointer-events-none absolute inset-x-0 z-0 border-b border-dashed border-line-strong/80"
+                  style={{
+                    bottom: `${Math.round((average / peak) * CHART_HEIGHT)}px`,
+                  }}
                 >
-                  <div className="h-px flex-1 border-t border-dashed border-line-strong" />
-                  <span className="text-[9.5px] text-fg-faint">в среднем {compactMoney(average)}</span>
+                  <span className="tnum absolute right-0 -top-3.5 text-[10px] text-fg-faint">
+                    ср. {compactMoney(average)}
+                  </span>
                 </motion.div>
               ) : null}
 
-                <div
-                  className="flex items-end"
-                  style={{ height: `${CHART_HEIGHT + 18}px`, gap: `${BAR_GAP[period]}px` }}
-                >
+              <div
+                className="relative z-10 flex items-end"
+                style={{ height: `${CHART_HEIGHT}px`, gap: `${BAR_GAP[period]}px` }}
+              >
                 {summary.series.map((point, index) => {
-                  const current = index === currentIndex;
+                  const active = index === currentIndex;
                   const future = point.from > today;
+                  const ratio = point.value / peak;
+                  const height = Math.max(Math.round(ratio * CHART_HEIGHT), point.value > 0 ? 3 : 1);
+
                   return (
-                    <div key={point.label} className="flex h-full flex-1 flex-col items-center justify-end">
-                      {compact ? null : (
-                        <span
-                          className={cn(
-                            "tnum w-full text-center text-[10px] leading-[18px]",
-                            current ? "font-semibold text-fg" : "text-fg-faint"
-                          )}
-                        >
-                          {point.value > 0 ? compactMoney(point.value) : ""}
-                        </span>
-                      )}
-                      <div className="flex w-full justify-center">
+                    <div
+                      key={point.label}
+                      className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+                    >
+                      <div className="relative w-full flex justify-center">
                         <motion.div
+                          key={`${period}-${point.label}`}
                           initial={{ scaleY: 0 }}
                           animate={{ scaleY: 1 }}
-                          transition={{
-                            duration: 0.5,
-                            delay: Math.min(index * 0.04, 0.4),
-                            ease: [0.16, 1, 0.3, 1],
-                          }}
+                          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: index * 0.01 }}
                           style={{
-                            height: `${Math.max((point.value / peak) * CHART_HEIGHT, 3)}px`,
-                            maxWidth: `${BAR_WIDTH[period]}px`,
+                            height: `${height}px`,
+                            width: compact ? "100%" : `${Math.min(BAR_WIDTH[period], 48)}px`,
+                            maxWidth: "100%",
+                            transformOrigin: "bottom center",
                           }}
                           className={cn(
-                            "w-full origin-bottom",
-                          period === "month" ? "rounded-[3px]" : "rounded-[5px]",
-                            current
+                            "rounded-full transition-colors",
+                            active
                               ? "bg-sage"
-                              : point.inRange
+                              : point.value > 0
                                 ? "bg-line-strong"
                                 : future
                                   ? "bg-line-strong/25"
@@ -178,50 +176,56 @@ export default function AnalyticsPage() {
         </motion.div>
       </section>
 
-      <section className="mt-7 px-5">
-        <button
-          type="button"
-          onClick={() => setExplainOpen(true)}
-          className="flex w-full items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3.5 text-left"
-        >
-          <span className="text-[13.5px] text-fg-muted">Банк списал</span>
-          <span className="tnum text-[14px] text-fg-muted">{money(summary.bankSpent)}</span>
-        </button>
-      </section>
-
-      <section className="mt-7">
-        <h2 className="px-5 pb-3 text-[15px] font-semibold">Категории</h2>
-        <ul className="space-y-3.5 px-5">
-          {summary.categories.map((row) => (
-            <li key={row.category}>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[14px]">{row.category}</span>
-                <span className="tnum text-[14px]">{money(row.amount)}</span>
-              </div>
-              <div className="mt-1.5 flex items-center gap-2">
-                <div className="h-1 flex-1 overflow-hidden rounded-full bg-raised">
-                  <motion.div
-                    style={{ width: `${row.share * 100}%` }}
-                    initial={{ scaleX: 0 }}
-                    animate={{ scaleX: 1 }}
-                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                    className="h-full origin-left rounded-full bg-sage/70"
-                  />
+      {/* Desktop 2-column grid for Categories & Income/Bank breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-7 px-5 md:px-0">
+        <section className="rounded-3xl border border-line bg-surface/60 p-4 md:p-5 shadow-sm">
+          <h2 className="pb-3 text-[15px] font-semibold">Категории</h2>
+          <ul className="space-y-3.5">
+            {summary.categories.map((row) => (
+              <li key={row.category}>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[14px]">{row.category}</span>
+                  <span className="tnum text-[14px]">{money(row.amount)}</span>
                 </div>
-                <span className="tnum w-9 text-right text-[11.5px] text-fg-faint">{percent(row.share)}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-raised">
+                    <motion.div
+                      style={{ width: `${row.share * 100}%` }}
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                      className="h-full origin-left rounded-full bg-sage/70"
+                    />
+                  </div>
+                  <span className="tnum w-9 text-right text-[11.5px] text-fg-faint">{percent(row.share)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="mt-7 px-5">
-        <h2 className="pb-3 text-[15px] font-semibold">Доходы</h2>
-        <div className="flex items-baseline justify-between rounded-2xl border border-line bg-surface px-4 py-3.5">
-          <span className="text-[13.5px] text-fg-muted">Реальный доход</span>
-          <span className="tnum text-[16px] font-semibold text-sage-strong">{money(summary.realIncome)}</span>
+        <div className="space-y-4">
+          <section className="rounded-3xl border border-line bg-surface/60 p-4 md:p-5 shadow-sm">
+            <h2 className="pb-3 text-[15px] font-semibold">Доходы</h2>
+            <div className="flex items-baseline justify-between rounded-2xl border border-line bg-surface px-4 py-3.5">
+              <span className="text-[13.5px] text-fg-muted">Реальный доход</span>
+              <span className="tnum text-[16px] font-semibold text-sage-strong">{money(summary.realIncome)}</span>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-line bg-surface/60 p-4 md:p-5 shadow-sm">
+            <h2 className="pb-3 text-[15px] font-semibold">Сверка с банком</h2>
+            <button
+              type="button"
+              onClick={() => setExplainOpen(true)}
+              className="flex w-full items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3.5 text-left hover:border-line-strong transition-colors"
+            >
+              <span className="text-[13.5px] text-fg-muted">Банк списал</span>
+              <span className="tnum text-[14px] text-fg-muted font-medium">{money(summary.bankSpent)}</span>
+            </button>
+          </section>
         </div>
-      </section>
+      </div>
 
       <ExplainSheet open={explainOpen} onClose={() => setExplainOpen(false)} summary={summary} />
     </>
