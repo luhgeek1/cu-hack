@@ -28,19 +28,13 @@ const PRESET_AVATARS = [
   { id: "bot", label: "Bot", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Finance" },
 ];
 
-/** Как движок трактует снятие наличных — менять с фронта нельзя */
-const CASH_POLICIES: Record<string, string> = {
-  expense_on_withdrawal: "Снятие сразу считается тратой",
-  transfer_to_cash_wallet: "Снятие — перевод в кошелёк наличных",
-};
-
 export default function ProfilePage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { data: profile } = useProfile();
   const { mutate: upload, isPending: isUploading } = useUploadAvatar();
   const { mutate: save, isPending: isSaving } = useUpdateProfile();
-  const { accounts, today, summary, cashPolicy, period } = useFinance();
+  const { accounts, today, summary, period } = useFinance();
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -119,7 +113,7 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      <section className="flex flex-col items-center px-5 pb-1 pt-3">
+      <section className="flex flex-col items-center px-5 pb-2 pt-3">
         <div className="relative" style={{ width: RING, height: RING }}>
           {/* Кольцо показывает, какую долю месяца движок разобрал без вопросов */}
           <svg width={RING} height={RING} className="-rotate-90" aria-hidden>
@@ -187,36 +181,25 @@ export default function ProfilePage() {
           onChange={handleFileChange}
         />
 
-        <span className="mt-3.5 rounded-full border border-sage/25 bg-sage-dim px-3 py-1 text-[11.5px] font-medium text-sage-strong">
-          {percent(autoShare)} разобрано без вас
-        </span>
-
-        <h1 className="mt-2.5 text-[21px] font-bold -tracking-[0.02em]">{displayName}</h1>
-        <p className="mt-0.5 text-[13px] text-fg-faint">{email}</p>
-
-        {/* Buttons: Change photo & Edit name */}
         <div className="mt-3.5 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setPhotoSheetOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-[12.5px] font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg shadow-sm active:scale-95"
-          >
-            <Camera className="size-3.5 text-sage-strong" />
-            Сменить фото
-          </button>
-
+          <h1 className="text-[21px] font-bold -tracking-[0.02em]">{displayName}</h1>
           <button
             type="button"
             onClick={() => {
               setName(profile?.username ?? "");
               setEditOpen(true);
             }}
-            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-[12.5px] font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg shadow-sm active:scale-95"
+            aria-label="Изменить имя"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-fg-muted shadow-sm transition-colors hover:border-line-strong hover:text-fg active:scale-95"
           >
             <Pencil className="size-3.5" />
-            Имя
           </button>
         </div>
+        <p className="mt-0.5 text-[13px] text-fg-faint">{email}</p>
+
+        <span className="mt-3 rounded-full border border-sage/25 bg-sage-dim px-3 py-1 text-[11.5px] font-medium text-sage-strong">
+          {percent(autoShare)} разобрано без вас
+        </span>
       </section>
 
       <section className="mt-6 px-5 md:px-0">
@@ -236,21 +219,9 @@ export default function ProfilePage() {
       <section className="mt-5 px-5 md:px-0">
         <h2 className="px-1 pb-2 text-[13px] text-fg-faint">Настройки</h2>
         <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
-          <div className="flex items-center justify-between gap-4 px-4 py-4">
-            <span className="min-w-0">
-              <span className="block text-[14.5px] font-medium">Наличные</span>
-              <span className="mt-0.5 block text-[12.5px] text-fg-faint">
-                {CASH_POLICIES[cashPolicy] ?? "Правило задаёт движок"}
-              </span>
-            </span>
-            <span className="shrink-0 rounded-full border border-line bg-raised px-3 py-1 text-[12px] text-fg-muted">
-              правило движка
-            </span>
-          </div>
-
           <Link
             to="/accounts"
-            className="flex items-center justify-between border-t border-line px-4 py-4 transition-colors hover:bg-raised/50"
+            className="flex items-center justify-between px-4 py-4 transition-colors hover:bg-raised/50"
           >
             <span>
               <span className="block text-[14.5px] font-medium">Подключённые банки</span>
