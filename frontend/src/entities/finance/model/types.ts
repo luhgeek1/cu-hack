@@ -2,13 +2,13 @@ export type BankId = "tbank" | "sber" | "alfa" | "ozon";
 
 export type Account = {
   id: string;
-  bank: BankId;
+  bank: string;
   bankName: string;
   name: string;
   mask: string;
   currency: "RUB";
   balance: number;
-  lastSyncAt: string;
+  lastSyncAt: string | null;
 };
 
 export type Transaction = {
@@ -40,21 +40,21 @@ export type Category =
   | "Продукты"
   | "Кафе"
   | "Транспорт"
+  | "Техника"
   | "Дом"
   | "Здоровье"
-  | "Развлечения"
   | "Подписки"
-  | "Одежда"
+  | "Покупки"
   | "Наличные"
   | "Прочее";
 
 export type ResolutionOption = {
   id: string;
   label: string;
-  /** Во что превращается событие после выбора */
-  type: EventType;
-  effectiveExpense: number;
-  effectiveIncome: number;
+  /** Действие для POST /events/{id}/resolve */
+  action: string;
+  /** Для связанных действий — событие, к которому привязываем */
+  relatedEventId: string | null;
   hint: string;
 };
 
@@ -78,8 +78,6 @@ export type FinancialEvent = {
   options?: ResolutionOption[];
   /** Для долгов: сколько ещё не вернули */
   debtOutstanding?: number;
-  /** Событие, поведение которого задаёт настройка в профиле */
-  policyKey?: "cash";
 };
 
 export type PeriodKey = "day" | "week" | "month" | "year";
