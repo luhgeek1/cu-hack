@@ -1,5 +1,10 @@
 # Fullstack monolith application template
 
+## Honest Month backend
+
+Financial MVP API, demo walkthrough and frontend contracts: [docs/BACKEND_API.md](docs/BACKEND_API.md).
+Swagger: `/api/docs`. Load 70 demo operations with authenticated `POST /api/v1/demo/load`.
+
 The app requires postgres and redis launched locally to start. I prefer keeping it all as docker containers.
 
 You can start postgresql via docker command:

@@ -133,3 +133,33 @@ Need:
 
 Safe workaround:
 - 
+
+## [DONE] Honest Month backend
+
+Agent: OpenCode
+Started: 2026-09-20
+Goal: Implement the PDF case end-to-end: imports, deterministic events, attention, analytics, demo.
+Files expected to change: backend/src/{domain/finance,service/finance,api/v1/finance,database/relational_db/tables/finance.py,migrations}, backend/tests, docs.
+Decisions:
+- API prefix /api/v1, snake_case fields, integer kopecks, RUB-only MVP.
+- Immutable normalized transactions; deterministic events rebuilt atomically on import/resolve. Manual decisions persist on source transactions.
+- Event contributions are dated by each original transaction, including negative expense adjustments on refund/reimbursement dates. All periods aggregate the same contributions in Europe/Moscow by default.
+- Cash withdrawals count as expenses immediately (explicit policy); no second accounting of cash purchases in this MVP.
+- Unknown credits contribute zero income and are explicitly provisional; unknown outgoing person transfers remain provisional expenses until resolved.
+- Mock bank imports and CSV/JSON import; no production banking dependencies.
+- Existing untracked backend/uv.lock belongs to prior work.
+
+Implemented:
+- Immutable accounts/transactions, stored event projections and transaction links; migration c31f20260920.
+- Deterministic transfer, marketplace FIFO provenance, debt/partial repayment, shared bill, refund, cash and attention handling.
+- 70-operation demo source; per-bank sync; JSON/CSV imports with atomic deduplication/conflict checks.
+- Period analytics/custom ranges, previous-period comparison, dashboard balance card, Money Graph, daily digest and one-click resolutions.
+- Pulled DESIGN.MD from origin/main (7da40dd); dashboard supplies Total Balance and mobile card data.
+- Backend contract is snake_case, documented in docs/BACKEND_API.md and typed OpenAPI.
+
+Verification:
+- 27 unit/API tests passed (including existing unit suite). Financial API uses real SQLite async persistence and overridden auth; production app route mounting/auth-required checks are covered.
+- Ruff on new modules/tests passed; poetry check --lock passed; PostgreSQL migration compiled with alembic upgrade a629654c84b7:c31f20260920 --sql.
+- Docker is unavailable and local PostgreSQL/Redis/MinIO ports are closed, so live PostgreSQL migrations and the existing external-service integration suite were not run here.
+
+Next task: frontend integration against docs/BACKEND_API.md; deploy existing compose and run demo steps.
