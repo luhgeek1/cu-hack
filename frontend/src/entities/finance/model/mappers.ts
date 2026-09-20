@@ -144,7 +144,7 @@ const MONTHS_SHORT = ["янв", "фев", "мар", "апр", "май", "июн"
 const DAYS_SHORT = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
 
 /** Бэкенд отдаёт дневной ряд; год сворачиваем в месяцы, остальное — день в день */
-const buildSeries = (key: PeriodKey, timeline: PeriodSummaryDto["timeline"]): SeriesPoint[] => {
+const buildSeries = (key: PeriodKey | "custom", timeline: PeriodSummaryDto["timeline"]): SeriesPoint[] => {
   const points = timeline.map((point) => {
     const from = new Date(`${point.date}T00:00:00`);
     const to = new Date(from);
@@ -152,17 +152,20 @@ const buildSeries = (key: PeriodKey, timeline: PeriodSummaryDto["timeline"]): Se
     return { from, to, value: rub(point.expense_minor) };
   });
 
-  if (key === "year") {
+  // Длинный произвольный диапазон читается только помесячно
+  if (key === "year" || (key === "custom" && points.length > 62)) {
     const months = new Map<number, SeriesPoint>();
+    // Ключ с годом: произвольный диапазон может пересекать границу года
     points.forEach((point) => {
       const month = point.from.getMonth();
-      const existing = months.get(month);
+      const slot = point.from.getFullYear() * 12 + month;
+      const existing = months.get(slot);
       if (existing) {
         existing.value += point.value;
         existing.to = point.to;
         return;
       }
-      months.set(month, {
+      months.set(slot, {
         label: MONTHS_SHORT[month],
         value: point.value,
         from: new Date(point.from.getFullYear(), month, 1),
@@ -171,10 +174,12 @@ const buildSeries = (key: PeriodKey, timeline: PeriodSummaryDto["timeline"]): Se
       });
     });
 
+    if (key === "custom") return [...months.values()];
+
     const year = points[0]?.from.getFullYear() ?? new Date().getFullYear();
     return [...Array(12).keys()].map(
       (month) =>
-        months.get(month) ?? {
+        months.get(year * 12 + month) ?? {
           label: MONTHS_SHORT[month],
           value: 0,
           from: new Date(year, month, 1),
@@ -195,11 +200,22 @@ const buildSeries = (key: PeriodKey, timeline: PeriodSummaryDto["timeline"]): Se
 };
 
 
+/** «1–20 сен» или «20 сен – 3 окт» для произвольного диапазона */
+export const rangeLabel = (from: Date, to: Date): string => {
+  const tail = `${to.getDate()} ${MONTHS_SHORT[to.getMonth()]}`;
+  if (from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear()) {
+    return from.getDate() === to.getDate() ? tail : `${from.getDate()}–${tail}`;
+  }
+  return `${from.getDate()} ${MONTHS_SHORT[from.getMonth()]} – ${tail}`;
+};
+
 export const mapSummary = (
   key: PeriodKey,
   anchor: Date,
   summary: PeriodSummaryDto,
-  comparison: ComparisonDto
+  comparison: ComparisonDto,
+  /** Задан, когда период выбран календарём, а не сегментами */
+  custom?: { from: Date; to: Date }
 ): PeriodSummary => {
   const realExpense = rub(summary.real_expense_minor);
 
@@ -222,7 +238,7 @@ export const mapSummary = (
 
   return {
     key,
-    label: periodRange(key, anchor).label,
+    label: custom ? rangeLabel(custom.from, custom.to) : periodRange(key, anchor).label,
     from: new Date(`${summary.start_date}T00:00:00`),
     to: new Date(`${summary.end_date}T23:59:59`),
     bankSpent: rub(summary.bank_outflow_minor),
@@ -233,7 +249,7 @@ export const mapSummary = (
     categories,
     needsAttention: summary.needs_attention_count,
     previousRealExpense: rub(comparison.previous_expense_minor),
-    series: buildSeries(key, summary.timeline),
+    series: buildSeries(custom ? "custom" : key, summary.timeline),
   };
 };
 

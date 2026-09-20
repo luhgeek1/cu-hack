@@ -18,7 +18,7 @@ import { Segmented } from "@/shared/ui/Segmented";
 type Filter = "all" | "attention" | "hidden";
 
 export default function EventsPage() {
-  const { today, summary, period, needsAttention } = useFinance();
+  const { today, summary, period, needsAttention, withAttention } = useFinance();
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<FinancialEvent | null>(null);
 
@@ -31,8 +31,8 @@ export default function EventsPage() {
   });
 
   const scoped: FinancialEvent[] = useMemo(
-    () => (query.data?.items ?? []).map(mapEvent),
-    [query.data]
+    () => (query.data?.items ?? []).map(mapEvent).map(withAttention),
+    [query.data, withAttention]
   );
 
   const visible = useMemo(() => {

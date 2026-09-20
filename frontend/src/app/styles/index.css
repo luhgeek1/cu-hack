@@ -124,6 +124,17 @@
     overscroll-behavior-y: none;
   }
 
+  /* Ползунок скролла в мобильном интерфейсе только мешает — прячем везде */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
   /* Деньги всегда моноширинными цифрами — колонки не пляшут */
   .tnum {
     font-variant-numeric: tabular-nums;

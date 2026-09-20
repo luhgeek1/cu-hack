@@ -29,7 +29,7 @@ export const AttentionCard = () => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97 }}
           transition={{ type: "spring", stiffness: 380, damping: 34 }}
-          className="mx-0 overflow-hidden rounded-3xl border border-sage/40 bg-gradient-to-b from-sage-dim to-raised p-4 shadow-[0_14px_34px_-20px_rgba(5,150,105,0.55)]"
+          className="mx-0 overflow-hidden rounded-3xl border border-sage/40 bg-gradient-to-b from-sage-dim to-raised p-4"
         >
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2 text-[12.5px] text-sage-strong">
@@ -53,7 +53,7 @@ export const AttentionCard = () => {
                   setDraft("");
                   resolve(current.id, option.id);
                 }}
-                className="shrink-0 whitespace-nowrap rounded-full border border-line-strong bg-surface px-3.5 py-2.5 text-[13px] font-medium transition-colors hover:border-sage hover:text-sage-strong"
+                className="max-w-[62%] shrink-0 truncate rounded-full border border-line-strong bg-surface px-3.5 py-2.5 text-[13px] font-medium transition-colors hover:border-sage hover:text-sage-strong"
               >
                 {option.label}
               </button>
