@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 import { useFinance, type PeriodKey } from "@/entities/finance";
-import { ActiveBankChip } from "@/features/accounts/ui/ActiveBankChip";
 import { ExplainSheet } from "@/features/reconcile/ui/ExplainSheet";
 import {
   SpendAnalyticsChart,
@@ -35,7 +34,6 @@ export default function AnalyticsPage() {
       <header className="px-5 md:px-0 pb-4 pt-5 safe-top">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-[22px] md:text-[26px] font-bold -tracking-[0.02em]">Аналитика</h1>
-          <ActiveBankChip />
         </div>
         <Segmented className="mt-4" layoutId="analytics-period" value={period} onChange={setPeriod} options={PERIODS} />
       </header>

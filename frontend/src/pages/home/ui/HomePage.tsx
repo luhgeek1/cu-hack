@@ -4,7 +4,6 @@ import { ChevronRight } from "lucide-react";
 
 import { useFinance, type FinancialEvent, type PeriodKey } from "@/entities/finance";
 import { AttentionCard } from "@/features/attention/ui/AttentionCard";
-import { BankFilter } from "@/features/accounts/ui/BankFilter";
 import { EventList } from "@/features/events/ui/EventList";
 import { EventSheet } from "@/features/events/ui/EventSheet";
 import { ExplainSheet } from "@/features/reconcile/ui/ExplainSheet";
@@ -25,16 +24,24 @@ const PERIODS: { value: PeriodKey; label: string }[] = [
 ];
 
 export default function HomePage() {
-  const { summary, visibleEvents, accounts, period, setPeriod, today, isSyncing } = useFinance();
+  const {
+    summary,
+    events,
+    accounts,
+    period,
+    setPeriod,
+    today,
+    isSyncing,
+    totalBalance,
+    outstandingDebt,
+    lastSyncedAt,
+  } = useFinance();
   const [explainOpen, setExplainOpen] = useState(false);
   const [selected, setSelected] = useState<FinancialEvent | null>(null);
 
-  const recent = useMemo(() => visibleEvents.slice(0, 6), [visibleEvents]);
-  const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
-  const owed = useMemo(
-    () => visibleEvents.reduce((sum, event) => sum + (event.debtOutstanding ?? 0), 0),
-    [visibleEvents]
-  );
+  const recent = useMemo(() => events.slice(0, 6), [events]);
+
+
   const perDay = Math.round(summary.realExpense / (period === "month" ? today.getDate() : 1));
 
   return (
@@ -50,7 +57,7 @@ export default function HomePage() {
               isSyncing ? "animate-pulse bg-brass" : "bg-sage-strong"
             )}
           />
-          {isSyncing ? "синхронизация" : `обновлено в ${accounts[0]?.lastSyncAt ? time(accounts[0].lastSyncAt) : "сейчас"}`}
+          {isSyncing ? "синхронизация" : lastSyncedAt ? `обновлено в ${time(lastSyncedAt)}` : "нет данных"}
         </span>
       </header>
 
@@ -58,9 +65,8 @@ export default function HomePage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 px-5 md:px-0">
         {/* Main Column (left on desktop) */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+          <div className="flex flex-col gap-2.5">
             <Segmented layoutId="home-period" value={period} onChange={setPeriod} options={PERIODS} />
-            <BankFilter />
           </div>
 
           {/* Две карточки со скриншота: 1 колонка на мобильном, 2 колонки на десктопе */}
@@ -78,7 +84,7 @@ export default function HomePage() {
           <div className="grid grid-cols-3 gap-2.5">
             <Tile label="Доход" value={money(summary.realIncome)} tone="sage" />
             <Tile label={period === "month" ? "В день" : "Средний чек"} value={money(perDay)} />
-            <Tile label="Вам должны" value={money(owed)} tone={owed > 0 ? "brass" : "muted"} />
+            <Tile label="Вам должны" value={money(outstandingDebt)} tone={outstandingDebt > 0 ? "brass" : "muted"} />
           </div>
 
           <ReconcileStrip summary={summary} onExplain={() => setExplainOpen(true)} />

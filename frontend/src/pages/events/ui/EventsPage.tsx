@@ -1,8 +1,15 @@
 import { useMemo, useState } from "react";
 import { AlertCircle, ArrowRight, HelpCircle } from "lucide-react";
 
-import { eventsInPeriod, useFinance, type FinancialEvent } from "@/entities/finance";
-import { ActiveBankChip } from "@/features/accounts/ui/ActiveBankChip";
+import { useQuery } from "@tanstack/react-query";
+
+import {
+  financeApi,
+  periodRange,
+  useFinance,
+  type FinancialEvent,
+} from "@/entities/finance";
+import { mapEvent } from "@/entities/finance";
 import { EventList } from "@/features/events/ui/EventList";
 import { EventSheet } from "@/features/events/ui/EventSheet";
 import { money } from "@/shared/lib/format";
@@ -11,11 +18,22 @@ import { Segmented } from "@/shared/ui/Segmented";
 type Filter = "all" | "attention" | "hidden";
 
 export default function EventsPage() {
-  const { events, today, summary, bank, needsAttention } = useFinance();
+  const { today, summary, period, needsAttention } = useFinance();
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<FinancialEvent | null>(null);
 
-  const scoped = useMemo(() => eventsInPeriod(events, "month", today, bank), [events, today, bank]);
+  const range = useMemo(() => periodRange(period, today), [period, today]);
+
+  const query = useQuery({
+    queryKey: ["finance", "events", period, range.from.toDateString()],
+    queryFn: () => financeApi.getEvents({ startDate: range.from, endDate: range.to }),
+    staleTime: 30_000,
+  });
+
+  const scoped: FinancialEvent[] = useMemo(
+    () => (query.data?.items ?? []).map(mapEvent),
+    [query.data]
+  );
 
   const visible = useMemo(() => {
     if (filter === "attention") return scoped.filter((event) => event.status === "needs_attention");
@@ -33,7 +51,6 @@ export default function EventsPage() {
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="text-[22px] md:text-[26px] font-bold -tracking-[0.02em]">События</h1>
           <div className="flex items-center gap-2">
-            <ActiveBankChip />
             <span className="tnum text-[13px] md:text-[14px] font-semibold text-fg-muted">
               {money(-summary.realExpense, { sign: true })}
             </span>

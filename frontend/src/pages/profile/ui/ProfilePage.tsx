@@ -4,7 +4,9 @@ import { motion } from "motion/react";
 import { Camera, Check, ChevronRight, ImagePlus, LogOut, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth/useAuth";
-import { eventsInPeriod, useFinance } from "@/entities/finance";
+import { useQuery } from "@tanstack/react-query";
+
+import { financeApi, periodRange, useFinance } from "@/entities/finance";
 import { bankMeta } from "@/entities/finance/ui/meta";
 import { resetOnboarding } from "@/features/onboarding/model/storage";
 import { useProfile, useUpdateProfile, useUploadAvatar } from "@/features/profile/useProfile";
@@ -25,13 +27,19 @@ const PRESET_AVATARS = [
   { id: "bot", label: "Bot", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Finance" },
 ];
 
+/** Как движок трактует снятие наличных — менять с фронта нельзя */
+const CASH_POLICIES: Record<string, string> = {
+  expense_on_withdrawal: "Снятие сразу считается тратой",
+  transfer_to_cash_wallet: "Снятие — перевод в кошелёк наличных",
+};
+
 export default function ProfilePage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { data: profile } = useProfile();
   const { mutate: upload, isPending: isUploading } = useUploadAvatar();
   const { mutate: save, isPending: isSaving } = useUpdateProfile();
-  const { events, accounts, today, summary, cashAsExpense, setCashAsExpense } = useFinance();
+  const { accounts, today, summary, cashPolicy, period } = useFinance();
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -48,11 +56,19 @@ export default function ProfilePage() {
 
   const currentAvatar = profile?.profilePicUrl || localAvatar;
 
-  const monthEvents = eventsInPeriod(events, "month", today);
-  const askedCount = monthEvents.filter(
-    (event) => event.status === "needs_attention" || event.status === "confirmed"
+  // Сколько событий движок собрал без вопросов — считаем по всему периоду
+  const range = periodRange(period, today);
+  const monthEvents = useQuery({
+    queryKey: ["finance", "events", "profile", period, range.from.toDateString()],
+    queryFn: () => financeApi.getEvents({ startDate: range.from, endDate: range.to, limit: 200 }),
+    staleTime: 60_000,
+  });
+
+  const total = monthEvents.data?.total ?? 0;
+  const askedCount = (monthEvents.data?.items ?? []).filter(
+    (item) => item.status !== "auto"
   ).length;
-  const autoShare = monthEvents.length > 0 ? 1 - askedCount / monthEvents.length : 1;
+  const autoShare = total > 0 ? 1 - askedCount / total : 1;
   const daysWithUs = profile?.createdAt
     ? Math.max(1, Math.round((Date.now() - new Date(profile.createdAt).getTime()) / 86_400_000))
     : 1;
@@ -217,29 +233,14 @@ export default function ProfilePage() {
         <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
           <div className="flex items-center justify-between gap-4 px-4 py-4">
             <span className="min-w-0">
-              <span className="block text-[14.5px] font-medium">Наличные — это трата</span>
+              <span className="block text-[14.5px] font-medium">Наличные</span>
               <span className="mt-0.5 block text-[12.5px] text-fg-faint">
-                Снятия в банкомате попадают в расходы
+                {CASH_POLICIES[cashPolicy] ?? "Правило задаёт движок"}
               </span>
             </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={cashAsExpense}
-              aria-label="Считать наличные тратой"
-              onClick={() => setCashAsExpense(!cashAsExpense)}
-              className={cn(
-                "relative h-7 w-12 shrink-0 rounded-full transition-colors",
-                cashAsExpense ? "bg-sage" : "bg-line-strong"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-1 size-5 rounded-full bg-white transition-all",
-                  cashAsExpense ? "left-6" : "left-1"
-                )}
-              />
-            </button>
+            <span className="shrink-0 rounded-full border border-line bg-raised px-3 py-1 text-[12px] text-fg-muted">
+              правило движка
+            </span>
           </div>
 
           <Link

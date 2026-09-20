@@ -2,6 +2,9 @@ import { Navigate, Outlet, useLocation, useRoutes, type Location, type RouteObje
 
 import { useAuth } from "@/app/providers/auth/useAuth";
 import { MobileShell } from "@/app/layouts/MobileShell";
+import { useQuery } from "@tanstack/react-query";
+
+import { FinanceProvider, financeApi } from "@/entities/finance";
 import { isOnboarded } from "@/features/onboarding/model/storage";
 import OnboardingPage from "@/pages/onboarding/ui/OnboardingPage";
 import AccountsPage from "@/pages/accounts/ui/AccountsPage";
@@ -23,14 +26,39 @@ const RequireAuth = () => {
     return <Navigate to="/auth" replace state={{ from: location }} />;
   }
 
-  return <Outlet />;
+  // Финансовые данные нужны и онбордингу, и приложению
+  return (
+    <FinanceProvider>
+      <Outlet />
+    </FinanceProvider>
+  );
 };
 
-/** Пока выписка не разобрана, пускаем только в онбординг */
+/**
+ * Пока у пользователя нет ни одного счёта, показываем онбординг.
+ * Источник правды — бэкенд; локальный флаг нужен для «пройти заново».
+ */
 const RequireOnboarding = () => {
   const auth = useAuth();
+  const email = auth?.user?.email as string | undefined;
 
-  if (!isOnboarded(auth?.user?.email as string | undefined)) {
+  const accounts = useQuery({
+    queryKey: ["finance", "accounts"],
+    queryFn: financeApi.getAccounts,
+    staleTime: 30_000,
+  });
+
+  if (accounts.isLoading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-ink">
+        <p className="text-[14px] text-fg-muted">Загружаем данные…</p>
+      </div>
+    );
+  }
+
+  const hasData = (accounts.data?.length ?? 0) > 0;
+
+  if (!hasData && !isOnboarded(email)) {
     return <Navigate to="/onboarding" replace />;
   }
 

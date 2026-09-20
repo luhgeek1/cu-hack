@@ -1,12 +1,12 @@
 import { Outlet } from "react-router-dom";
 
-import { FinanceProvider } from "@/entities/finance";
+import { VoiceButton } from "@/features/voice/ui/VoiceButton";
 
 import { DesktopSidebar } from "./DesktopSidebar";
 import { TabBar } from "./TabBar";
 
 export const MobileShell = () => (
-  <FinanceProvider>
+  <>
     <div className="min-h-dvh bg-gradient-to-b from-[#0e1013] via-[#0b0c0e] to-[#07080a] text-fg relative overflow-x-hidden selection:bg-emerald-500/20 flex flex-col md:flex-row">
       {/* Top subtle ambient neo-banking emerald lighting */}
       <div className="pointer-events-none fixed -top-32 left-1/2 -translate-x-1/2 w-[750px] h-[350px] bg-gradient-to-b from-emerald-500/10 via-emerald-900/5 to-transparent blur-3xl z-0" />
@@ -20,9 +20,9 @@ export const MobileShell = () => (
           <Outlet />
         </main>
       </div>
-
       {/* Mobile TabBar (hidden on desktop) */}
+      <VoiceButton />
       <TabBar />
     </div>
-  </FinanceProvider>
+  </>
 );

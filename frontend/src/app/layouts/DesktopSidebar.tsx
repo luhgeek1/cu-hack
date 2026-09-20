@@ -30,8 +30,12 @@ export const DesktopSidebar = () => {
   const { data: profile } = useProfile();
   const auth = useAuth();
 
-  const name = profile?.username || profile?.email || auth?.user?.name || "Пользователь";
-  const email = profile?.email || auth?.user?.email || "";
+  const name: string =
+    profile?.username ||
+    profile?.email ||
+    (typeof auth?.user?.name === "string" ? auth.user.name : "") ||
+    "Пользователь";
+  const email: string = profile?.email || auth?.user?.email || "";
   const initials = name
     .split(/[\s@._-]+/)
     .slice(0, 2)
