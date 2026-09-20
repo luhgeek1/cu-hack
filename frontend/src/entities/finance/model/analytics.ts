@@ -133,8 +133,11 @@ const debitSum = (event: FinancialEvent) =>
 const sumExpense = (events: FinancialEvent[]) =>
   events.reduce((sum, event) => sum + event.effectiveExpense, 0);
 
+/** Сколько соседних корзин показываем вокруг выбранного периода — контекст для сравнения */
+const CONTEXT_BUCKETS: Record<PeriodKey, number> = { day: 2, week: 0, month: 0, year: 0 };
+
 const buildSeries = (key: PeriodKey, range: Range, events: FinancialEvent[]) => {
-  const buckets: { label: string; from: Date; to: Date }[] = [];
+  const buckets: { label: string; caption?: string; from: Date; to: Date }[] = [];
 
   if (key === "year") {
     for (let month = 0; month < 12; month += 1) {
@@ -142,22 +145,34 @@ const buildSeries = (key: PeriodKey, range: Range, events: FinancialEvent[]) => 
       buckets.push({ label: MONTHS_SHORT[month], from, to: new Date(range.from.getFullYear(), month + 1, 1) });
     }
   } else if (key === "month") {
-    let cursor = startOfWeek(range.from);
+    // По дням: недельные корзины прятали рельеф месяца
+    let cursor = range.from;
     while (cursor < range.to) {
-      const to = addDays(cursor, 7);
-      buckets.push({ label: `${cursor.getDate()}–${addDays(to, -1).getDate()}`, from: cursor, to });
-      cursor = to;
+      buckets.push({ label: String(cursor.getDate()), from: cursor, to: addDays(cursor, 1) });
+      cursor = addDays(cursor, 1);
+    }
+  } else if (key === "week") {
+    for (let i = 0; i < 7; i += 1) {
+      const from = addDays(range.from, i);
+      buckets.push({ label: DAYS_SHORT[from.getDay()], caption: String(from.getDate()), from, to: addDays(from, 1) });
     }
   } else {
-    const days = key === "week" ? 7 : 1;
-    for (let i = 0; i < days; i += 1) {
+    // День: сам день плюс соседние — один столбец без контекста ничего не говорит
+    const context = CONTEXT_BUCKETS.day;
+    for (let i = -context; i <= context; i += 1) {
       const from = addDays(range.from, i);
-      buckets.push({ label: DAYS_SHORT[from.getDay()], from, to: addDays(from, 1) });
+      buckets.push({
+        label: `${from.getDate()} ${MONTHS_SHORT[from.getMonth()]}`,
+        caption: DAYS_SHORT[from.getDay()],
+        from,
+        to: addDays(from, 1),
+      });
     }
   }
 
   return buckets.map((bucket) => ({
     ...bucket,
+    inRange: bucket.from.getTime() >= range.from.getTime() && bucket.to.getTime() <= range.to.getTime(),
     value: sumExpense(
       events.filter((event) => {
         const time = new Date(event.timestamp).getTime();
@@ -223,7 +238,7 @@ export const summarize = (
     categories,
     needsAttention: scoped.filter((event) => event.status === "needs_attention").length,
     previousRealExpense,
-    series: buildSeries(key, range, scoped),
+    series: buildSeries(key, range, pool),
   };
 };
 

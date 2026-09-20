@@ -29,6 +29,8 @@ type FinanceContextValue = {
   /** Последнее изменение реальных трат — для подсветки пересчёта */
   lastDelta: { eventId: string; amount: number } | null;
   resolve: (eventId: string, optionId: string) => void;
+  /** Ответ своими словами — когда ни один быстрый вариант не подошёл */
+  resolveCustom: (eventId: string, label: string) => void;
   /** Считать ли снятие наличных тратой — настройка из профиля */
   cashAsExpense: boolean;
   setCashAsExpense: (value: boolean) => void;
@@ -67,6 +69,27 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
           effectiveIncome: option.effectiveIncome,
           reason: option.hint,
           subtitle: option.label,
+        };
+      })
+    );
+  }, []);
+
+  const resolveCustom = useCallback((eventId: string, label: string) => {
+    const answer = label.trim();
+    if (!answer) return;
+
+    setEvents((current) =>
+      current.map((event) => {
+        if (event.id !== eventId) return event;
+
+        setLastDelta({ eventId, amount: 0 });
+
+        return {
+          ...event,
+          status: "confirmed",
+          confidence: 1,
+          reason: "Ваш вариант",
+          subtitle: answer,
         };
       })
     );
@@ -152,6 +175,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       needsAttention,
       lastDelta,
       resolve,
+      resolveCustom,
       cashAsExpense,
       setCashAsExpense,
       connectBank,
@@ -168,6 +192,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       needsAttention,
       lastDelta,
       resolve,
+      resolveCustom,
       cashAsExpense,
       setCashAsExpense,
       connectBank,

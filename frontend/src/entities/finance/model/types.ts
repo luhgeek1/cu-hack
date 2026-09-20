@@ -109,5 +109,14 @@ export type PeriodSummary = {
   categories: CategoryTotal[];
   needsAttention: number;
   previousRealExpense: number;
-  series: { label: string; value: number; from: Date; to: Date }[];
+  series: {
+    label: string;
+    /** Вторая строка подписи: день недели для дневного графика, число — для недельного */
+    caption?: string;
+    value: number;
+    from: Date;
+    to: Date;
+    /** Корзина внутри выбранного периода; остальные — соседний контекст */
+    inRange: boolean;
+  }[];
 };
