@@ -120,8 +120,14 @@
 | `EventSheet` | `features/events/ui/` | карточка события + граф денег |
 | `MoneyGraph` | `features/events/ui/` | дерево: списание → возвраты |
 | `BottomSheet` | `shared/ui/BottomSheet.tsx` | шторка (Esc, блокировка скролла) |
+| `ProcessingSteps` | `features/onboarding/ui/` | шаги обработки: спиннер → галочка |
 | `Segmented` | `shared/ui/Segmented.tsx` | переключатель периодов и фильтров |
 | `AnimatedMoney` | `shared/ui/AnimatedMoney.tsx` | сумма «доезжает» при пересчёте |
+
+Онбординг (`pages/onboarding`) живёт вне `MobileShell`: без таб-бара, с полосой
+прогресса «шаг из 4» сверху и основной кнопкой внизу экрана. Шаги: загрузка
+PDF → чтение → выбор сервисов → разбор → итог. Пока всё моковое, факт
+прохождения лежит в `localStorage` (`features/onboarding/model/storage.ts`).
 
 Профиль — единственный экран с центрированной композицией: кольцо вокруг
 аватара показывает долю событий, разобранных без вопросов, и служит опорой

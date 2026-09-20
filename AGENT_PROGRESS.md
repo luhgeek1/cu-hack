@@ -137,6 +137,33 @@ Notes:
 
 ---
 
+## [DONE] Онбординг (моковый)
+
+Agent: Claude (frontend)
+Completed: 2026-09-20
+
+Implemented:
+- Старт → вход → загрузка PDF → чтение выписки → выбор сервисов (WB / Ozon / Яндекс Маркет) → разбор операций → главная.
+- Экран входа разделён на «Старт» (обещание продукта, три шага, кнопка «Начать») и форму; логика auth не менялась.
+- `/onboarding` вне MobileShell: полоса прогресса 1/4…4/4, основная кнопка внизу.
+- Загрузка PDF: выбор файла, drag & drop, кнопка «Взять демо-выписку» для демо жюри.
+- Экраны ожидания показывают реальные шаги движка (`ProcessingSteps`).
+- Итоговый экран берёт числа из того же датасета, что и главная: 74 218 → 35 718 ₽, 38 операций, 30 событий, 3 уточнить.
+- Гвард `RequireOnboarding`: без пройденного онбординга любой путь ведёт на `/onboarding`.
+- В профиле — «Загрузить новую выписку» (сбрасывает флаг и запускает онбординг заново).
+
+Files changed:
+- `frontend/src/features/onboarding/**` (storage, ProcessingSteps)
+- `frontend/src/pages/onboarding/ui/OnboardingPage.tsx`
+- `frontend/src/pages/auth/ui/AuthPage.tsx`, `frontend/src/pages/profile/ui/ProfilePage.tsx`
+- `frontend/src/app/routes/AppRoutes.tsx`, `frontend/src/entities/finance/index.ts` (`demoIntake`)
+
+Notes для интеграции с бэком:
+- Факт прохождения сейчас в `localStorage` — заменить на `isOnboarded` пользователя.
+- Точки подключения: загрузка файла (`POST /imports` или `/imports/csv`), обработка и разбор (сейчас таймеры), выбор сервисов (нужен эндпоинт или сохранение в профиле).
+
+---
+
 Agents: when you start work, append an `[IN PROGRESS]` section below.
 
 ---

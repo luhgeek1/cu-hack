@@ -1,7 +1,7 @@
 import type { FinancialEvent } from "@/entities/finance";
 import { transactionsById } from "@/entities/finance";
 import { accountsById } from "@/entities/finance";
-import { money, time } from "@/shared/lib/format";
+import { dayMonth, money, time } from "@/shared/lib/format";
 
 type MoneyGraphProps = {
   event: FinancialEvent;
@@ -28,7 +28,7 @@ export const MoneyGraph = ({ event }: MoneyGraphProps) => {
         <div className="min-w-0">
           <p className="truncate text-[14px] font-medium">{root.merchant ?? "Операция"}</p>
           <p className="mt-0.5 text-[12px] text-fg-faint">
-            {rootAccount?.bankName} · {time(root.timestamp)}
+            {rootAccount?.bankName} · {dayMonth(root.timestamp)}, {time(root.timestamp)}
           </p>
         </div>
         <span className="tnum shrink-0 text-[14px]">
