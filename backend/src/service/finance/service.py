@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from uuid import uuid5
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, insert, select
 
@@ -8,8 +9,9 @@ from core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from database.relational_db.tables.finance import FinanceAccount, FinanceEvent, FinanceEventLink, FinanceTransaction
 from database.relational_db.tables.users.users_table import User
 from domain.finance.schemas import (
-    AccountData, AccountView, AttentionItem, BankView, Dashboard, Digest, EventDetail, FinancialEvent,
-    GraphEdge, GraphNode, ImportResult, ResolutionOption, ResolveResult, TransactionData, TransactionInput,
+    AccountCreate, AccountData, AccountView, AttentionItem, BankView, Dashboard, Digest, EventDetail, FinancialEvent,
+    GraphEdge, GraphNode, ImportResult, Resolution, ResolutionOption, ResolveResult, TransactionData, TransactionInput,
+    VoiceConfirmation, VoiceConfirmationResult,
 )
 from service.finance.analytics import analytics, summarize
 from service.finance.engine import reconstruct
@@ -36,6 +38,7 @@ class FinanceService:
         amounts = defaultdict(int)
         for t in await self.transactions():
             amounts[t.account_id] += t.amount_minor
+        amounts[uuid5(self.user_id, "account:cash:wallet")] += sum(e.cash_wallet_delta_minor for e in await self.events())
         return [AccountView(**AccountData.model_validate(a).model_dump(),
                             balance_minor=a.opening_balance_minor + amounts[a.id], last_synced_at=a.last_synced_at) for a in rows]
 
@@ -72,6 +75,8 @@ class FinanceService:
             events = reconstruct([AccountData.model_validate(a) for a in accounts], await self.transactions())
         except ValueError as exc:
             raise UnprocessableEntityError(str(exc)) from exc
+        if any(e.cash_wallet_delta_minor for e in events):
+            await self.create_account(AccountCreate(external_id="wallet", bank="cash", name="Кошелёк наличных", account_type="cash"))
         from service.finance.marketplaces import MarketplaceService, enrich_events
         orders = await MarketplaceService(self).rows()
         enrich_events(events, [{**r.payload, "id": str(r.id), "marketplace": r.marketplace,
@@ -118,6 +123,25 @@ class FinanceService:
         events = await self.rebuild()
         return ImportResult(imported_count=imported, duplicate_count=duplicates, event_count=len(events),
                             needs_attention_count=sum(e.status == "needs_attention" for e in events), synced_at=now)
+
+    async def voice_candidates(self, transaction):
+        if transaction.account_id not in {account.id for account in await self.accounts()}:
+            raise NotFoundError("Account not found")
+        from service.finance.voice import matching_expense_transaction_ids
+        expense_ids = {event.id for event in await self.events()
+                       if event.type == "expense" and len(event.contributions) == 1}
+        return [transaction_id for transaction_id in matching_expense_transaction_ids(transaction, await self.transactions())
+                if transaction_id in expense_ids]
+
+    async def confirm_voice(self, payload: VoiceConfirmation):
+        if payload.matched_transaction_id is not None:
+            if payload.matched_transaction_id not in await self.voice_candidates(payload.transaction):
+                raise UnprocessableEntityError("Selected transaction is not a matching expense")
+            resolution = await self.resolve(payload.matched_transaction_id,
+                                            Resolution(action="expense", category=payload.transaction.category))
+            return VoiceConfirmationResult(matched_transaction_id=payload.matched_transaction_id, resolution=resolution)
+        result = await self.import_transactions([payload.transaction])
+        return VoiceConfirmationResult(import_result=result)
 
     async def load_demo(self, month: date, bank=None):
         await self.lock()
@@ -166,8 +190,13 @@ class FinanceService:
                     edges.append(GraphEdge(source=f"event:{link.event_id}", target=f"event:{e.id}", role="marketplace_funding", amount_minor=link.amount_minor))
         return EventDetail(event=event, transactions=transactions, related_events=related, nodes=nodes, edges=edges)
 
-    async def attention(self):
+    async def attention(self, start=None, end=None, tz="Europe/Moscow"):
         events = await self.events()
+        if start is not None:
+            try:
+                summarize(events, start, end, tz)
+            except ValueError as exc:
+                raise UnprocessableEntityError(str(exc)) from exc
         transactions = await self.transactions()
         tx_map = {t.id: t for t in transactions}
         refunds = defaultdict(int)
@@ -177,6 +206,8 @@ class FinanceService:
         result = []
         for event in events:
             if event.status != "needs_attention":
+                continue
+            if start is not None and not any(start <= c.occurred_at.astimezone(ZoneInfo(tz)).date() <= end for c in event.contributions):
                 continue
             t = tx_map[event.id]
             if t.amount_minor > 0:
@@ -209,6 +240,7 @@ class FinanceService:
                     count += 1
                     if count == 5:
                         break
+            options.append(ResolutionOption(action="later", label="Позже"))
             result.append(AttentionItem(event=event, options=options))
         return result
 
@@ -240,7 +272,7 @@ class FinanceService:
         accounts = await self.accounts()
         return Dashboard(**report.model_dump(), total_balance_minor=sum(a.balance_minor for a in accounts),
                          accounts=accounts, recent_events=list(reversed(await self.events()))[:10],
-                         attention_preview=(await self.attention())[:3])
+                          attention_preview=(await self.attention(start, end, tz))[:3])
 
     async def digest(self, day, tz):
         events = await self.events()

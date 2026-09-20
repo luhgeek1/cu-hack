@@ -5,13 +5,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Query, UploadFile
 
+from core.config import get_settings
 from core.errors import PayloadTooLargeError, UnprocessableEntityError
 from core.security import auth_user, parse_token, verify_auth_version
 from database.relational_db import get_session_factory
 from domain.finance.schemas import (
     AccountCreate, AccountData, AccountView, Analytics, AttentionItem, BankView, Dashboard, DemoRequest,
     Digest, EventDetail, EventStatus, EventType, FinanceDate, FinancialEvent, ImportRequest, ImportResult, Page,
-    Resolution, ResolveResult, TransactionData,
+    Resolution, ResolveResult, SpendingAdvice, TransactionData, VoiceConfirmation, VoiceConfirmationResult, VoicePreview,
 )
 from service.finance.analytics import period_bounds
 from service.finance.importer import parse_csv
@@ -21,6 +22,8 @@ from service.finance.statements import parse_tbank_pdf, parse_tbank_text
 from starlette.concurrency import run_in_threadpool
 from domain.finance.marketplaces import IntegrationView, Marketplace, OrderImport, OrderImportResult, OrderLink, OrderView
 from service.finance.marketplaces import MarketplaceService
+from service.finance.insights import DSLabInsightGateway, SpendingInsightService
+from service.finance.voice import DSLabVoiceGateway, VoiceService
 
 router = APIRouter(tags=["Honest Month"])
 
@@ -37,6 +40,26 @@ async def get_finance_service(user=Depends(current_finance_user)):
 
 
 Service = Annotated[FinanceService, Depends(get_finance_service, scope="function")]
+
+
+def get_voice_service():
+    settings = get_settings()
+    if not settings.DSLAB_API_KEY:
+        raise UnprocessableEntityError("Voice input is not configured")
+    return VoiceService(DSLabVoiceGateway(settings.DSLAB_API_KEY, settings.DSLAB_BASE_URL, settings.DSLAB_VOICE_MODEL))
+
+
+Voice = Annotated[VoiceService, Depends(get_voice_service)]
+
+
+def get_insight_service():
+    settings = get_settings()
+    if not settings.DSLAB_API_KEY:
+        raise UnprocessableEntityError("Spending insights are not configured")
+    return SpendingInsightService(DSLabInsightGateway(settings.DSLAB_API_KEY, settings.DSLAB_BASE_URL, settings.DSLAB_VOICE_MODEL))
+
+
+Insights = Annotated[SpendingInsightService, Depends(get_insight_service)]
 
 
 @router.get("/integrations", response_model=list[IntegrationView])
@@ -123,6 +146,23 @@ async def import_csv(account_id: UUID, file: UploadFile, svc: Service):
     return await svc.import_transactions(parse_csv(content, account_id))
 
 
+@router.post("/voice/preview", response_model=VoicePreview)
+async def preview_voice(account_id: UUID, file: UploadFile, svc: Service, voice: Voice):
+    if not (file.content_type or "").startswith("audio/"):
+        raise UnprocessableEntityError("Upload an audio file")
+    content = await file.read(20 * 1024 * 1024 + 1)
+    if len(content) > 20 * 1024 * 1024:
+        raise PayloadTooLargeError("Audio must be at most 20 MiB")
+    preview = await run_in_threadpool(voice.preview, content, file.filename or "recording", file.content_type, account_id)
+    return VoicePreview(**preview.model_dump(exclude={"candidate_transaction_ids"}),
+                        candidate_transaction_ids=await svc.voice_candidates(preview.transaction))
+
+
+@router.post("/voice/confirm", response_model=VoiceConfirmationResult)
+async def confirm_voice(payload: VoiceConfirmation, svc: Service):
+    return await svc.confirm_voice(payload)
+
+
 @router.post("/imports/tbank/preview", response_model=StatementPreview)
 async def preview_statement(account_id: UUID, file: UploadFile, svc: Service):
     if account_id not in {a.id for a in await svc.accounts()}:
@@ -191,8 +231,11 @@ async def resolve(event_id: UUID, payload: Resolution, svc: Service):
 
 
 @router.get("/attention", response_model=Page[AttentionItem])
-async def attention(svc: Service, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
-    return page(await svc.attention(), limit, offset)
+async def attention(svc: Service, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
+                    start_date: FinanceDate | None = None, end_date: FinanceDate | None = None, timezone: str = "Europe/Moscow"):
+    if (start_date is None) != (end_date is None):
+        raise UnprocessableEntityError("Supply both start_date and end_date")
+    return page(await svc.attention(start_date, end_date, timezone), limit, offset)
 
 
 @router.get("/analytics", response_model=Analytics)
@@ -204,6 +247,12 @@ async def report(svc: Service, bounds=Depends(dates)):
 @router.get("/dashboard", response_model=Dashboard)
 async def dashboard(svc: Service, bounds=Depends(dates)):
     return await svc.dashboard(*bounds)
+
+
+@router.get("/insights", response_model=SpendingAdvice)
+async def insights(svc: Service, advisor: Insights, bounds=Depends(dates)):
+    report = await svc.analytics(*bounds)
+    return await run_in_threadpool(advisor.generate, report)
 
 
 @router.get("/digest", response_model=Digest)

@@ -71,6 +71,11 @@ class Settings(BaseSettings):
     # CORS settings (optional, use only if you call backend directly)
     CORS_ALLOW_ORIGINS: str = ""
     CORS_ALLOW_ORIGIN_REGEX: str = ""
+
+    # DSLab-compatible OpenAI API. Keep the key in the environment, never in source control.
+    DSLAB_API_KEY: str = ""
+    DSLAB_BASE_URL: str = "https://api.dslab.tech/v1"
+    DSLAB_VOICE_MODEL: str = "gemini-3.7-flash"
     
     # Database settings
     DATABASE_URL: str

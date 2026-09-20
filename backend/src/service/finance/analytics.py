@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from domain.finance.schemas import Analytics, Breakdown, CategoryTotal, Comparison, PeriodSummary, TimelinePoint
+from domain.finance.schemas import Analytics, Breakdown, CategoryTotal, Comparison, PeriodSummary, TimelinePoint, Reconciliation, PeriodReview
 
 
 def period_bounds(period: str, anchor: date) -> tuple[date, date]:
@@ -38,9 +38,9 @@ def summarize(events, start: date, end: date, timezone: str = "Europe/Moscow") -
             if not start <= day <= end:
                 continue
             counted = True
-            outflow = max(-c.amount_minor, 0)
+            outflow = max(-c.amount_minor, 0) if not c.is_cash else 0
             result.bank_outflow_minor += outflow
-            result.bank_inflow_minor += max(c.amount_minor, 0)
+            result.bank_inflow_minor += max(c.amount_minor, 0) if not c.is_cash else 0
             result.real_expense_minor += c.expense_minor
             result.real_income_minor += c.income_minor
             timeline[day].expense_minor += c.expense_minor
@@ -80,7 +80,19 @@ def analytics(events, start, end, timezone="Europe/Moscow", period=None):
         previous_start = start - timedelta(days=(end - start).days + 1)
     previous = summarize(events, previous_start, previous_end, timezone)
     delta = summary.real_expense_minor - previous.real_expense_minor
-    return Analytics(summary=summary, comparison=Comparison(
+    if period == "month":
+        ranges = [(start.replace(day=d), start.replace(day=d + 6) if d < 22 else end) for d in (1, 8, 15, 22)]
+    else:
+        ranges = [(start + timedelta(days=i), start + timedelta(days=i)) for i in range((end - start).days + 1)]
+    parts = [summarize(events, a, b, timezone) for a, b in ranges]
+    expense_sum = sum(p.real_expense_minor for p in parts)
+    income_sum = sum(p.real_income_minor for p in parts)
+    proof = Reconciliation(parts=parts, expense_sum_minor=expense_sum, income_sum_minor=income_sum,
+                           matches=expense_sum == summary.real_expense_minor and income_sum == summary.real_income_minor)
+    count = summary.needs_attention_count
+    review = PeriodReview(status="needs_attention" if count else "complete", needs_attention_count=count,
+                          message=f"Осталось уточнить операций: {count}. Они могут изменить итог." if count else "Все операции за период разобраны.")
+    return Analytics(summary=summary, reconciliation=proof, review=review, comparison=Comparison(
         previous_start_date=previous_start, previous_end_date=previous_end,
         previous_expense_minor=previous.real_expense_minor, previous_income_minor=previous.real_income_minor,
         expense_delta_minor=delta, income_delta_minor=summary.real_income_minor - previous.real_income_minor,

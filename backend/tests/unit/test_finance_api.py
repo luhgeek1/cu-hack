@@ -8,12 +8,14 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from api.v1.finance.router import router, get_finance_service, current_finance_user
+from api.v1.finance.router import router, get_finance_service, current_finance_user, get_insight_service, get_voice_service
 from core.config import get_settings
 from core.error_handling import register_exception_handlers
 from database.relational_db.tables.finance import FinanceAccount, FinanceTransaction, FinanceEvent, FinanceEventLink, MarketplaceOrder
 from database.relational_db.tables.users.users_table import User
 from service.finance.service import FinanceService
+from service.finance.insights import SpendingInsightService
+from service.finance.voice import VoiceService
 
 
 @pytest_asyncio.fixture
@@ -55,7 +57,7 @@ async def test_complete_demo_resolve_resync_persistence_and_isolation(finance_ap
     assert loaded.json()["imported_count"] >= 50
     before = (await client.get("/api/v1/dashboard?period=month&date=2026-09-01")).json()
     assert before["summary"]["needs_attention_count"] == 1
-    assert len(before["accounts"]) == 4
+    assert len(before["accounts"]) == 5
     assert before["total_balance_minor"] == sum(a["balance_minor"] for a in before["accounts"])
     attention = (await client.get("/api/v1/attention")).json()
     event_id = attention["items"][0]["event"]["id"]
@@ -192,3 +194,110 @@ async def test_statement_import_and_marketplace_link_do_not_duplicate_money(fina
     assert repeat.json()["import_result"]["duplicate_count"] == 1
     assert (await client.get("/api/v1/transactions")).json()["total"] == 1
     assert all(not i["live_sync_available"] for i in (await client.get("/api/v1/integrations")).json())
+
+
+@pytest.mark.asyncio
+async def test_cash_wallet_and_deferred_attention(finance_api):
+    client, _, _ = finance_api
+    await client.post('/api/v1/demo/load', json={'month': '2026-09-01'})
+    before = (await client.get('/api/v1/dashboard?period=month&date=2026-09-01')).json()
+    wallet = next(a for a in before['accounts'] if a['account_type'] == 'cash')
+    assert wallet['balance_minor'] == 500000
+    pending = (await client.get('/api/v1/attention')).json()['items'][0]
+    response = await client.post(f"/api/v1/events/{pending['event']['id']}/resolve", json={'action': 'later'})
+    assert response.status_code == 200, response.text
+    assert response.json()['needs_attention_count'] == 1
+    await client.post('/api/v1/demo/load', json={'month': '2026-09-01'})
+    assert (await client.get('/api/v1/attention')).json()['total'] == 1
+    response = await client.post('/api/v1/imports', json={'transactions': [{
+        'external_id': 'cash-food', 'account_id': wallet['id'], 'amount_minor': -10000,
+        'occurred_at': '2026-09-21T12:00:00+03:00', 'merchant': 'Продукты'}]})
+    assert response.status_code == 200, response.text
+    after = (await client.get('/api/v1/dashboard?period=month&date=2026-09-01')).json()
+    assert next(a for a in after['accounts'] if a['id'] == wallet['id'])['balance_minor'] == 490000
+    assert after['summary']['real_expense_minor'] == before['summary']['real_expense_minor'] + 10000
+    assert after['summary']['bank_outflow_minor'] == before['summary']['bank_outflow_minor']
+    assert after['total_balance_minor'] == before['total_balance_minor'] - 10000
+
+
+@pytest.mark.asyncio
+async def test_voice_preview_matches_expense_and_confirmation_does_not_import_duplicate(finance_api):
+    client, _, _ = finance_api
+    account = (await client.post("/api/v1/accounts", json={"external_id": "voice-card", "bank": "tbank", "name": "Voice card"})).json()
+    imported = await client.post("/api/v1/imports", json={"transactions": [{
+        "external_id": "bank-expense", "account_id": account["id"], "amount_minor": -45000,
+        "occurred_at": "2026-09-19T18:30:00+03:00", "merchant": "Пятерочка",
+    }]})
+    assert imported.status_code == 200, imported.text
+    existing_id = (await client.get("/api/v1/transactions")).json()["items"][0]["id"]
+
+    class Gateway:
+        def transcribe(self, content, filename, content_type):
+            assert content == b"audio"
+            return "Вчера купил продукты в Пятерочке за 450 рублей"
+
+        def extract_transaction(self, transcript, now):
+            return {"amount_minor": -45000, "occurred_at": "2026-09-19T18:30:00+03:00",
+                    "merchant": "Пятерочка", "description": "Покупка продуктов", "category": "groceries"}
+
+    client._transport.app.dependency_overrides[get_voice_service] = lambda: VoiceService(Gateway())
+    preview = await client.post(f"/api/v1/voice/preview?account_id={account['id']}", files={
+        "file": ("operation.ogg", b"audio", "audio/ogg"),
+    })
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    assert body["candidate_transaction_ids"] == [existing_id]
+    assert body["transaction"]["source"] == "voice"
+    assert (await client.get("/api/v1/transactions")).json()["total"] == 1
+
+    confirmation = await client.post("/api/v1/voice/confirm", json={
+        "transaction": body["transaction"], "matched_transaction_id": existing_id,
+    })
+    assert confirmation.status_code == 200, confirmation.text
+    assert confirmation.json()["matched_transaction_id"] == existing_id
+    assert (await client.get("/api/v1/transactions")).json()["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_insights_use_server_calculated_spending_dynamics(finance_api):
+    client, _, _ = finance_api
+    loaded = await client.post("/api/v1/demo/load", json={"month": "2026-09-01"})
+    assert loaded.status_code == 200, loaded.text
+
+    class Gateway:
+        def advise(self, facts):
+            assert facts["summary"]["real_expense_minor"] > 0
+            assert facts["timeline"]
+            assert facts["comparison"]["expense_delta_minor"] != 0
+            return {"insights": [{
+                "title": "Кафе", "message": "Расходы на рестораны выросли относительно прошлого периода.",
+                "category": "restaurants", "action": "Установите недельный лимит на кафе.",
+            }]}
+
+    client._transport.app.dependency_overrides[get_insight_service] = lambda: SpendingInsightService(Gateway())
+    response = await client.get("/api/v1/insights?period=month&date=2026-09-01")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["basis"]["real_expense_minor"] > 0
+    assert body["insights"][0]["category"] == "restaurants"
+
+
+@pytest.mark.asyncio
+async def test_period_review_queue_and_completion(finance_api):
+    client, _, _ = finance_api
+    await client.post('/api/v1/demo/load', json={'month': '2026-09-01'})
+    await client.post('/api/v1/demo/load', json={'month': '2026-10-01'})
+    query = '?start_date=2026-09-01&end_date=2026-09-30'
+    queue = (await client.get('/api/v1/attention' + query)).json()
+    assert queue['total'] == 1
+    report = (await client.get('/api/v1/analytics?period=month&date=2026-09-01')).json()
+    assert report['review']['status'] == 'needs_attention'
+    event_id = queue['items'][0]['event']['id']
+    await client.post(f'/api/v1/events/{event_id}/resolve', json={'action': 'income'})
+    report = (await client.get('/api/v1/analytics?period=month&date=2026-09-01')).json()
+    assert report['review']['status'] == 'complete'
+    assert report['review']['message'] == 'Все операции за период разобраны.'
+    assert report['summary']['real_income_minor'] == 9550000
+    assert report['reconciliation']['matches']
+    assert (await client.get('/api/v1/attention' + query)).json()['total'] == 0
+    assert (await client.get('/api/v1/attention')).json()['total'] == 1

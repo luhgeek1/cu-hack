@@ -187,6 +187,10 @@ secrets/
 test.py
 /.vscode
 
+# Private bank statements and generated local parser output
+/backend/statement.pdf
+/backend/statement.json
+
 # Allow tracked frontend shared utilities
 !frontend/src/shared/lib/
 !frontend/src/shared/lib/**
