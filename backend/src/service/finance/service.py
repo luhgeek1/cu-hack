@@ -4,6 +4,7 @@ from uuid import uuid5
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, insert, select
+from starlette.concurrency import run_in_threadpool
 
 from core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from database.relational_db.tables.finance import FinanceAccount, FinanceEvent, FinanceEventLink, FinanceTransaction
@@ -190,24 +191,54 @@ class FinanceService:
                     edges.append(GraphEdge(source=f"event:{link.event_id}", target=f"event:{e.id}", role="marketplace_funding", amount_minor=link.amount_minor))
         return EventDetail(event=event, transactions=transactions, related_events=related, nodes=nodes, edges=edges)
 
-    async def attention(self, start=None, end=None, tz="Europe/Moscow"):
+    async def attention(self, start=None, end=None, tz="Europe/Moscow", limit=None):
         events = await self.events()
+        transactions = await self.transactions()
+        # The scan below is pure CPU over the whole ledger; keep it off the event loop.
+        return await run_in_threadpool(self._attention, events, transactions, start, end, tz, limit)
+
+    def _attention(self, events, transactions, start, end, tz, limit=None):
+        zone = None
         if start is not None:
             try:
                 summarize(events, start, end, tz)
+                zone = ZoneInfo(tz)
             except ValueError as exc:
                 raise UnprocessableEntityError(str(exc)) from exc
-        transactions = await self.transactions()
         tx_map = {t.id: t for t in transactions}
         refunds = defaultdict(int)
         for e in events:
             if e.type == "refund":
                 refunds[e.related_event_id] += e.bank_inflow_minor
+        # Candidate pools are built once per call. Rescanning every event per button was quadratic:
+        # a 3k-event ledger with 2k unresolved rows meant ~28M inner iterations and tens of seconds.
+        # Each pool keeps ledger order, so scanning it backwards yields the same candidates, and in
+        # the same order, as the original reversed(events) walk. The `caps` arrays are running maxima
+        # of the amount each candidate can absorb, which lets a hopeless scan stop instead of running
+        # to the start of the ledger.
+        transfers = defaultdict(list)
+        debts, debt_caps = [], []
+        expenses, expense_caps = [], []
+        restaurants, restaurant_caps = [], []
+        for candidate in events:
+            original = tx_map[candidate.id]
+            if len(candidate.contributions) == 1 and original.resolution is None:
+                transfers[original.amount_minor].append(candidate)
+            if candidate.type == "debt_given":
+                debts.append(candidate)
+                debt_caps.append(max(debt_caps[-1] if debt_caps else 0, candidate.remaining_minor or 0))
+            if candidate.type in {"expense", "shared_expense"}:
+                available = candidate.expense_impact_minor - refunds[candidate.id]
+                expenses.append(candidate)
+                expense_caps.append(max(expense_caps[-1] if expense_caps else 0, available))
+                if candidate.category == "restaurants":
+                    restaurants.append(candidate)
+                    restaurant_caps.append(max(restaurant_caps[-1] if restaurant_caps else 0, available))
         result = []
         for event in events:
             if event.status != "needs_attention":
                 continue
-            if start is not None and not any(start <= c.occurred_at.astimezone(ZoneInfo(tz)).date() <= end for c in event.contributions):
+            if start is not None and not any(start <= c.occurred_at.astimezone(zone).date() <= end for c in event.contributions):
                 continue
             t = tx_map[event.id]
             if t.amount_minor > 0:
@@ -219,21 +250,28 @@ class FinanceService:
             actions.append(("own_transfer", "Перевод между своими счетами"))
             # Offer bounded, concrete candidates; never reconstruct the whole ledger for every button.
             for action, label in actions:
+                if action == "own_transfer":
+                    pool, caps = transfers.get(-t.amount_minor, ()), None
+                elif action == "debt_repayment":
+                    pool, caps = debts, debt_caps
+                elif action == "shared_expense_repayment":
+                    pool, caps = restaurants, restaurant_caps
+                else:
+                    pool, caps = expenses, expense_caps
                 count = 0
-                for candidate in reversed(events):
+                for i in range(len(pool) - 1, -1, -1):
+                    if caps is not None and caps[i] < t.amount_minor:
+                        break
+                    candidate = pool[i]
                     original = tx_map[candidate.id]
                     if candidate.id == event.id or original.occurred_at > t.occurred_at:
                         continue
                     if action == "own_transfer":
-                        valid = (len(candidate.contributions) == 1 and original.resolution is None
-                                 and original.account_id != t.account_id and original.amount_minor == -t.amount_minor)
+                        valid = original.account_id != t.account_id
                     elif action == "debt_repayment":
-                        valid = candidate.type == "debt_given" and candidate.remaining_minor >= t.amount_minor
+                        valid = (candidate.remaining_minor or 0) >= t.amount_minor
                     else:
-                        valid = (candidate.type in {"expense", "shared_expense"}
-                                 and candidate.expense_impact_minor - refunds[candidate.id] >= t.amount_minor)
-                        if action == "shared_expense_repayment":
-                            valid = valid and candidate.category == "restaurants"
+                        valid = candidate.expense_impact_minor - refunds[candidate.id] >= t.amount_minor
                     if not valid:
                         continue
                     options.append(ResolutionOption(action=action, label=f"{label}: {candidate.title}", related_event_id=candidate.id))
@@ -242,6 +280,8 @@ class FinanceService:
                         break
             options.append(ResolutionOption(action="later", label="Позже"))
             result.append(AttentionItem(event=event, options=options))
+            if limit is not None and len(result) >= limit:
+                break
         return result
 
     async def resolve(self, event_id, resolution):
@@ -272,7 +312,7 @@ class FinanceService:
         accounts = await self.accounts()
         return Dashboard(**report.model_dump(), total_balance_minor=sum(a.balance_minor for a in accounts),
                          accounts=accounts, recent_events=list(reversed(await self.events()))[:10],
-                          attention_preview=(await self.attention(start, end, tz))[:3])
+                          attention_preview=await self.attention(start, end, tz, limit=3))
 
     async def digest(self, day, tz):
         events = await self.events()

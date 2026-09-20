@@ -8,26 +8,36 @@ type ProcessingStepsProps = {
   steps: string[];
   /** Сколько держим каждый шаг, мс */
   pace?: number;
-  onDone: () => void;
+  /**
+   * Пока идёт настоящая работа — последний шаг не закрываем.
+   * Так анимация живёт ровно столько же, сколько запрос, и не обрывается раньше него.
+   */
+  waiting?: boolean;
+  onDone?: () => void;
 };
 
 /** Экран ожидания: видно, что именно сейчас делает движок */
-export const ProcessingSteps = ({ steps, pace = 750, onDone }: ProcessingStepsProps) => {
+export const ProcessingSteps = ({ steps, pace = 750, waiting = false, onDone }: ProcessingStepsProps) => {
   const [done, setDone] = useState(0);
 
   // Колбэк держим в ref: иначе новый инлайн-обработчик родителя сбрасывал таймер шага
   const finishRef = useRef(onDone);
   finishRef.current = onDone;
 
+  // Под живую работу оставляем последний шаг незакрытым, пока она не кончится
+  const limit = waiting ? Math.max(steps.length - 1, 0) : steps.length;
+
   useEffect(() => {
     if (done >= steps.length) {
-      const finish = window.setTimeout(() => finishRef.current(), 500);
+      const finish = window.setTimeout(() => finishRef.current?.(), 500);
       return () => window.clearTimeout(finish);
     }
 
+    if (done >= limit) return;
+
     const next = window.setTimeout(() => setDone((current) => current + 1), pace);
     return () => window.clearTimeout(next);
-  }, [done, steps.length, pace]);
+  }, [done, limit, pace, steps.length]);
 
   return (
     <ul className="space-y-1">

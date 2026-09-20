@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -11,6 +20,8 @@ import type { Account, FinancialEvent, PeriodKey, PeriodSummary } from "./types"
 export type DateRange = { from: Date; to: Date };
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
 
 const addDays = (date: Date, days: number) => {
   const next = new Date(date);
@@ -77,22 +88,32 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const [period, setPeriodState] = useState<PeriodKey>("month");
   const today = useMemo(() => new Date(), []);
   const [anchor, setAnchorState] = useState<Date>(() => startOfDay(new Date()));
-  const [range, setRange] = useState<DateRange | null>(null);
+  const [range, setRangeState] = useState<DateRange | null>(null);
+  /** Период уже выбран осознанно — импортом или самим пользователем. Больше его не трогаем */
+  const anchorChosen = useRef(false);
 
   const setAnchor = useCallback((date: Date) => {
-    setRange(null);
+    anchorChosen.current = true;
+    setRangeState(null);
     setAnchorState(startOfDay(date));
   }, []);
 
-  // Календарь и сегменты — взаимоисключающие способы задать период
+  const setRange = useCallback((next: DateRange | null) => {
+    anchorChosen.current = true;
+    setRangeState(next);
+  }, []);
+
+  // Календарь и сегменты — взаимоисключающие способы задать период.
+  // Смена шкалы не выбирает дату, поэтому якорь тут не закрепляем.
   const setPeriod = useCallback((next: PeriodKey) => {
-    setRange(null);
+    setRangeState(null);
     setPeriodState(next);
   }, []);
 
   const shiftPeriod = useCallback(
     (step: number) => {
-      setRange((current) => {
+      anchorChosen.current = true;
+      setRangeState((current) => {
         if (!current) return current;
         const span = Math.round((current.to.getTime() - current.from.getTime()) / 86_400_000) + 1;
         return { from: addDays(current.from, step * span), to: addDays(current.to, step * span) };
@@ -101,6 +122,26 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     },
     [period, range]
   );
+
+  /**
+   * Выписку почти всегда загружают за прошедший период. Пока якорь стоит на
+   * сегодняшнем дне, такой импорт не виден: и месяц, и год отдают нули.
+   * Поэтому при первом заходе открываем период последней операции —
+   * но только если в текущем месяце данных нет и период ещё никто не выбирал.
+   */
+  const latestOperation = useQuery({
+    queryKey: ["finance", "latest-operation"],
+    queryFn: api.getLatestTransactionDate,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (anchorChosen.current || !latestOperation.data) return;
+    const latest = startOfDay(new Date(latestOperation.data));
+    if (Number.isNaN(latest.getTime()) || latest >= startOfMonth(today)) return;
+    anchorChosen.current = true;
+    setAnchorState(latest);
+  }, [latestOperation.data, today]);
 
   const canGoForward = useMemo(() => {
     if (range) return range.to < startOfDay(today);
@@ -276,6 +317,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     setAnchor,
     canGoForward,
     range,
+    setRange,
     setPeriod,
     shiftPeriod,
     dashboard.data,

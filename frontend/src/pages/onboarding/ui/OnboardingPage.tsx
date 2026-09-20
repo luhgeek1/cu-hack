@@ -15,14 +15,23 @@ import { ProcessingSteps } from "@/features/onboarding/ui/ProcessingSteps";
 import { money } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
-type Step = "upload" | "services" | "parsing" | "done";
+type Step = "upload" | "uploading" | "services" | "parsing" | "done";
 
 const STEP_INDEX: Record<Step, number> = {
   upload: 1,
+  uploading: 1,
   services: 2,
   parsing: 3,
   done: 3,
 };
+
+/** Шаги на время разбора файла: ждём ответ бэкенда, а не таймер */
+const UPLOAD_STEPS = [
+  "Загружаем файл",
+  "Читаем выписку",
+  "Сверяем итоги с банком",
+  "Сохраняем операции",
+];
 
 const SERVICES = [
   { id: "wb", name: "Wildberries", color: "#cb11ab", ink: "#ffffff", short: "WB" },
@@ -36,7 +45,7 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const { today, summary } = useFinance();
+  const { today, summary, setPeriod: setFinancePeriod, setAnchor } = useFinance();
   const [result, setResult] = useState<ImportResultDto | null>(null);
   const [importedStatement, setImportedStatement] = useState<StatementResultDto["statement"] | null>(null);
   const [finalDashboard, setFinalDashboard] = useState<DashboardDto | null>(null);
@@ -48,6 +57,15 @@ export default function OnboardingPage() {
     queryFn: financeApi.getIntegrations,
     staleTime: 60_000,
   });
+
+  /** Переводим весь интерфейс на месяц, которым заканчивается выписка */
+  const showStatementPeriod = useCallback(
+    (endDate: string) => {
+      setFinancePeriod("month");
+      setAnchor(new Date(`${endDate}T12:00:00`));
+    },
+    [setAnchor, setFinancePeriod]
+  );
 
   /** Выписка: заводим счёт под импорт и отправляем PDF */
   const importStatement = useMutation({
@@ -64,6 +82,8 @@ export default function OnboardingPage() {
       setResult(statement.import_result);
       setImportedStatement(statement.statement);
       setStatementPeriod({ start_date: statement.statement.start_date, end_date: statement.statement.end_date });
+      // Выписка обычно за прошедший месяц: открываем приложение на её периоде, иначе везде нули
+      showStatementPeriod(statement.statement.end_date);
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       setStep("services");
     },
@@ -246,6 +266,7 @@ export default function OnboardingPage() {
                     disabled={!file || isImporting}
                     onClick={() => {
                       if (!file) return;
+                      setStep("uploading");
                       importStatement.mutate(file);
                     }}
                     className="w-full rounded-2xl bg-sage px-4 py-4 text-[15px] font-semibold text-white transition-opacity disabled:opacity-35"
@@ -258,12 +279,29 @@ export default function OnboardingPage() {
                     onClick={() => {
                       setFileName(DEMO_FILE);
                       setFileSize(null);
+                      setStep("uploading");
                       loadDemo.mutate();
                     }}
                     className="w-full py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg disabled:opacity-35"
                   >
                     {loadDemo.isPending ? "Готовим демо-выписку…" : "Взять демо-выписку"}
                   </button>
+                </div>
+              </>
+            ) : null}
+
+            {step === "uploading" ? (
+              <>
+                <h1 className="text-[24px] font-bold leading-tight -tracking-[0.02em]">
+                  Разбираем выписку
+                </h1>
+                <p className="mt-2 text-[14px] text-fg-muted">
+                  {fileName ? `Файл «${fileName}» уже у нас` : "Файл уже у нас"} — осталось прочитать операции
+                </p>
+
+                <div className="mt-6 w-full">
+                  {/* Шаги идут, пока запрос в полёте: экран не замирает и не убегает вперёд */}
+                  <ProcessingSteps steps={UPLOAD_STEPS} pace={700} waiting={isImporting} />
                 </div>
               </>
             ) : null}

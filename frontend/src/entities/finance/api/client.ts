@@ -16,6 +16,7 @@ import type {
   SpendingAdviceDto,
   StatementPreviewDto,
   StatementResultDto,
+  TransactionDto,
 } from "./dto";
 
 export type PeriodParam = "day" | "week" | "month" | "year";
@@ -72,6 +73,17 @@ export const getEvents = async (params: {
     },
   });
   return data;
+};
+
+/**
+ * Дата последней операции: /transactions отдаёт их от свежих к старым.
+ * Нужна, чтобы открыть приложение на периоде, в котором данные реально есть.
+ */
+export const getLatestTransactionDate = async (): Promise<string | null> => {
+  const { data } = await apiProtected.get<PageDto<TransactionDto>>("/transactions", {
+    params: { limit: 1 },
+  });
+  return data.items[0]?.occurred_at ?? null;
 };
 
 export const getEventDetail = async (id: string): Promise<EventDetailDto> => {

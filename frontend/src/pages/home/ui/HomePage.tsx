@@ -29,6 +29,7 @@ export default function HomePage() {
     accounts,
     period,
     setPeriod,
+    anchor,
     today,
     isSyncing,
     totalBalance,
@@ -42,7 +43,16 @@ export default function HomePage() {
   const recent = useMemo(() => events.slice(0, 6).map(withAttention), [events, withAttention]);
 
 
-  const perDay = Math.round(summary.realExpense / (period === "month" ? today.getDate() : 1));
+  // Текущий месяц делим на прожитые дни, прошедший — на все его дни
+  const perDay = useMemo(() => {
+    if (period !== "month") return Math.round(summary.realExpense);
+    const current =
+      anchor.getFullYear() === today.getFullYear() && anchor.getMonth() === today.getMonth();
+    const days = current
+      ? today.getDate()
+      : new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
+    return Math.round(summary.realExpense / Math.max(days, 1));
+  }, [anchor, period, summary.realExpense, today]);
 
   return (
     <>

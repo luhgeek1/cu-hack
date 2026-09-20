@@ -18,14 +18,19 @@ import { Segmented } from "@/shared/ui/Segmented";
 type Filter = "all" | "attention" | "hidden";
 
 export default function EventsPage() {
-  const { today, summary, period, needsAttention, withAttention } = useFinance();
+  const { anchor, range: customRange, summary, period, needsAttention, withAttention } = useFinance();
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<FinancialEvent | null>(null);
 
-  const range = useMemo(() => periodRange(period, today), [period, today]);
+  // Период берём тот же, что и остальные экраны: якорь, а не сегодняшний день,
+  // иначе импорт за прошлый месяц оставляет список пустым
+  const range = useMemo(
+    () => customRange ?? periodRange(period, anchor),
+    [anchor, customRange, period]
+  );
 
   const query = useQuery({
-    queryKey: ["finance", "events", period, range.from.toDateString()],
+    queryKey: ["finance", "events", period, range.from.toDateString(), range.to.toDateString()],
     queryFn: () => financeApi.getEvents({ startDate: range.from, endDate: range.to }),
     staleTime: 30_000,
   });

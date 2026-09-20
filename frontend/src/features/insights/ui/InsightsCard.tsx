@@ -20,14 +20,14 @@ const RUN_MS = PHASES.length * 700;
  * (моделью, если настроен DSLab, иначе по правилам над агрегатами).
  */
 export const InsightsCard = () => {
-  const { period, today, summary } = useFinance();
+  const { period, anchor, summary } = useFinance();
   const [stage, setStage] = useState<Stage>("idle");
   const [phase, setPhase] = useState(0);
   const timers = useRef<number[]>([]);
 
   const advice = useQuery({
-    queryKey: ["finance", "insights", period],
-    queryFn: () => financeApi.getInsights(period, today),
+    queryKey: ["finance", "insights", period, anchor.toDateString()],
+    queryFn: () => financeApi.getInsights(period, anchor),
     enabled: false,
     staleTime: 5 * 60_000,
     retry: false,
@@ -36,7 +36,7 @@ export const InsightsCard = () => {
   /** Смена периода сбрасывает разбор: советы были про другие числа */
   useEffect(() => {
     setStage("idle");
-  }, [period]);
+  }, [period, anchor]);
 
   useEffect(() => () => timers.current.forEach(window.clearTimeout), []);
 

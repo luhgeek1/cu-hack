@@ -1,7 +1,7 @@
 import { useRef, useState, type DragEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { Check, FileJson, Upload } from "lucide-react";
+import { Check, FileText, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { financeApi, useFinance } from "@/entities/finance";
@@ -18,16 +18,36 @@ import {
 /** Бэкенд принимает не больше 2000 операций за запрос */
 const BATCH = 2000;
 
+const isJson = (file: File) => /\.json$/i.test(file.name) || file.type === "application/json";
+
+/** Ответы бэкенда приходят по-английски — показываем человеку понятное */
+const DETAILS: Record<string, string> = {
+  "Unsupported statement format: expected T-Bank movement statement":
+    "Это не похоже на справку о движении средств Т-Банка",
+  "Upload a PDF or extracted UTF-8 .txt statement": "Нужен PDF или .txt с текстом выписки",
+  "Expected a PDF file": "Нужен PDF",
+  "Cannot read PDF: upload an unencrypted, text-based bank statement":
+    "PDF не читается: нужен незащищённый файл с текстом, а не скан",
+  "Statement totals missing: upload all pages including the last page":
+    "Не хватает итогов — загрузите все страницы, включая последнюю",
+  "Statement account or period is missing": "В файле нет номера счёта или периода",
+  "Statement must contain 1–10000 operations": "В выписке должно быть от 1 до 10 000 операций",
+  "Statement text is too large": "Выписка слишком большая",
+  "Text must be UTF-8": "Текст должен быть в UTF-8",
+  "Account not found": "Счёт не найден",
+};
+
 const errorMessage = (error: unknown): string => {
   if (isAxiosError(error)) {
     const detail = (error.response?.data as { detail?: string } | undefined)?.detail;
     if (error.response?.status === 409) {
-      return "Такие операции уже загружали, но в файле они отличаются — проверьте external_id";
+      return "Эти операции уже загружали, но в файле они отличаются";
     }
-    if (detail) return detail;
+    if (error.response?.status === 413) return "Файл больше 20 МБ";
+    if (detail) return DETAILS[detail] ?? detail;
     if (!error.response) return "Сервер не отвечает";
   }
-  return "Не удалось загрузить операции";
+  return "Не удалось разобрать выписку";
 };
 
 type ImportStatementSheetProps = {
@@ -36,15 +56,15 @@ type ImportStatementSheetProps = {
 };
 
 /**
- * Загрузка выписки в JSON без повторного онбординга:
- * разбираем файл на месте, показываем, что нашли, и только потом пишем.
+ * Новая выписка без повторного онбординга: PDF уходит в разбор на бэкенд,
+ * данные пересобираются, экраны обновляются сами.
  */
 export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProps) => {
-  const { accounts } = useFinance();
+  const { accounts, setPeriod, setAnchor } = useFinance();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResultDto | null>(null);
@@ -53,7 +73,7 @@ export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProp
   const target = accountId ?? accounts[0]?.id ?? null;
 
   const reset = () => {
-    setFileName(null);
+    setFile(null);
     setParsed(null);
     setResult(null);
     setAccountId(null);
@@ -65,35 +85,45 @@ export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProp
     onClose();
   };
 
-  const takeFile = async (file: File | null | undefined) => {
-    if (!file) return;
+  const takeFile = async (selected: File | null | undefined) => {
+    if (!selected) return;
 
     setResult(null);
-    setFileName(file.name);
+    setFile(selected);
+    setParsed(null);
 
-    try {
-      setParsed(parseStatementJson(await file.text(), file.name));
-    } catch (error) {
-      setParsed(null);
-      toast.error(error instanceof StatementParseError ? error.message : "Не удалось прочитать файл");
+    /** JSON разбираем на месте — по нему сразу видно, сколько операций нашли */
+    if (isJson(selected)) {
+      try {
+        setParsed(parseStatementJson(await selected.text(), selected.name));
+      } catch (error) {
+        setFile(null);
+        toast.error(error instanceof StatementParseError ? error.message : "Не удалось прочитать файл");
+      }
     }
   };
 
-  const importAll = useMutation({
-    mutationFn: async () => {
-      if (!parsed) throw new Error("Файл не выбран");
+  const importFile = useMutation({
+    /** Кроме итогов возвращаем дату последней операции: на неё переводим экраны */
+    mutationFn: async (): Promise<{ totals: ImportResultDto; lastDate: string | null }> => {
+      if (!file) throw new Error("Файл не выбран");
 
-      /** Операциям нужен счёт: берём выбранный или заводим новый под импорт */
+      /** Выписку нужно куда-то положить: берём выбранный счёт или заводим новый */
       const accountIdForRows =
         target ??
         (
           await financeApi.createAccount({
-            external_id: `json-import-${Date.now()}`,
+            external_id: `statement-${Date.now()}`,
             bank: "tbank",
-            name: "Импорт из файла",
+            name: "Выписка",
             account_type: "card",
           })
         ).id;
+
+      if (!parsed) {
+        const statement = await financeApi.importStatement(accountIdForRows, file);
+        return { totals: statement.import_result, lastDate: statement.statement.end_date };
+      }
 
       const rows = parsed.transactions.map((item) => ({
         ...item,
@@ -118,14 +148,27 @@ export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProp
         totals.synced_at = part.synced_at;
       }
 
-      return totals;
+      const lastDate = rows.reduce<string | null>(
+        (latest, row) => (!latest || row.occurred_at > latest ? row.occurred_at : latest),
+        null
+      );
+
+      return { totals, lastDate };
     },
-    onSuccess: (totals) => {
+    onSuccess: ({ totals, lastDate }) => {
       setResult(totals);
+      // Выписка обычно за прошедший период — иначе экраны останутся пустыми
+      if (lastDate) {
+        setPeriod("month");
+        setAnchor(new Date(lastDate));
+      }
       queryClient.invalidateQueries({ queryKey: ["finance"] });
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
+
+  const sizeLabel = file ? `${Math.max(1, Math.round(file.size / 1024))} КБ` : "";
+  const hint = parsed ? `${parsed.transactions.length} операций · ${sizeLabel}` : sizeLabel;
 
   return (
     <BottomSheet open={open} onClose={close} title="Новая выписка">
@@ -175,17 +218,14 @@ export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProp
                 dragging ? "border-sage bg-sage-dim/40" : "border-line-strong bg-raised"
               )}
             >
-              {parsed && fileName ? (
+              {file ? (
                 <div className="flex items-center gap-3">
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-sage-dim text-sage-strong">
-                    <FileJson className="size-5" />
+                    <FileText className="size-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14.5px] font-medium">{fileName}</span>
-                    <span className="mt-0.5 block text-[12.5px] text-fg-faint">
-                      {parsed.transactions.length} операций
-                      {parsed.skipped.length > 0 ? ` · ${parsed.skipped.length} пропущено` : ""}
-                    </span>
+                    <span className="block truncate text-[14.5px] font-medium">{file.name}</span>
+                    <span className="mt-0.5 block text-[12.5px] text-fg-faint">{hint}</span>
                   </span>
                   <button
                     type="button"
@@ -204,9 +244,9 @@ export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProp
                   <span className="flex size-12 items-center justify-center rounded-2xl bg-surface text-fg-muted">
                     <Upload className="size-5" />
                   </span>
-                  <span className="text-[14.5px] font-medium">Выбрать файл JSON</span>
+                  <span className="text-[14.5px] font-medium">Выбрать файл PDF</span>
                   <span className="px-4 text-center text-[12.5px] text-fg-faint">
-                    Массив операций или объект с полем transactions
+                    Справка о движении средств из интернет-банка
                   </span>
                 </button>
               )}
@@ -215,7 +255,7 @@ export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProp
             <input
               ref={inputRef}
               type="file"
-              accept="application/json,.json"
+              accept="application/pdf,.pdf,.txt,.json"
               className="hidden"
               onChange={(event) => {
                 void takeFile(event.target.files?.[0]);
@@ -234,7 +274,7 @@ export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProp
               </p>
             ) : null}
 
-            {parsed && accounts.length > 1 ? (
+            {file && accounts.length > 1 ? (
               <div>
                 <p className="px-1 pb-2 text-[12.5px] text-fg-faint">На какой счёт записать</p>
                 <div className="no-scrollbar flex gap-2 overflow-x-auto">
@@ -259,16 +299,16 @@ export const ImportStatementSheet = ({ open, onClose }: ImportStatementSheetProp
 
             <button
               type="button"
-              disabled={!parsed || importAll.isPending}
-              onClick={() => importAll.mutate()}
+              disabled={!file || importFile.isPending}
+              onClick={() => importFile.mutate()}
               className="w-full rounded-2xl bg-sage px-4 py-3.5 text-[15px] font-semibold text-ink transition-opacity disabled:opacity-35"
             >
-              {importAll.isPending
-                ? "Загружаем…"
-                : parsed
-                  ? `Загрузить ${parsed.transactions.length} операций`
-                  : "Загрузить"}
+              {importFile.isPending ? "Читаем выписку…" : "Загрузить"}
             </button>
+
+            <p className="px-1 text-center text-[11.5px] text-fg-faint">
+              PDF до 20 МБ · также примем .txt с текстом выписки или .json с операциями
+            </p>
           </>
         )}
       </div>

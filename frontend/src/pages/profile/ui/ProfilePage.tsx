@@ -33,7 +33,7 @@ export default function ProfilePage() {
   const { data: profile } = useProfile();
   const { mutate: upload, isPending: isUploading } = useUploadAvatar();
   const { mutate: save, isPending: isSaving } = useUpdateProfile();
-  const { accounts, today, summary, period } = useFinance();
+  const { accounts, anchor, summary, period } = useFinance();
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -52,7 +52,7 @@ export default function ProfilePage() {
   const currentAvatar = profile?.profilePicUrl || localAvatar;
 
   // Сколько событий движок собрал без вопросов — считаем по всему периоду
-  const range = periodRange(period, today);
+  const range = periodRange(period, anchor);
   const monthEvents = useQuery({
     queryKey: ["finance", "events", "profile", period, range.from.toDateString()],
     queryFn: () => financeApi.getEvents({ startDate: range.from, endDate: range.to, limit: 200 }),
@@ -101,7 +101,8 @@ export default function ProfilePage() {
 
   return (
     <>
-      <div className="flex justify-end px-4 safe-top">
+      <header className="flex items-center justify-between px-5 pb-1 pt-5 safe-top md:px-0">
+        <h1 className="text-[22px] font-bold -tracking-[0.02em] md:text-[26px]">Профиль</h1>
         <button
           type="button"
           onClick={() => auth?.logout()}
@@ -111,7 +112,7 @@ export default function ProfilePage() {
         >
           <LogOut className="size-[18px]" />
         </button>
-      </div>
+      </header>
 
       <section className="flex flex-col items-center px-5 pb-2 pt-3">
         <div className="relative" style={{ width: RING, height: RING }}>
@@ -212,10 +213,6 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <div className="mt-6">
-        <InsightsCard />
-      </div>
-
       <section className="mt-5 px-5 md:px-0">
         <h2 className="px-1 pb-2 text-[13px] text-fg-faint">Настройки</h2>
         <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
@@ -246,12 +243,16 @@ export default function ProfilePage() {
           >
             <span>
               <span className="block text-[14.5px] font-medium">Загрузить новую выписку</span>
-              <span className="mt-0.5 block text-[12.5px] text-fg-faint">JSON с операциями</span>
+              <span className="mt-0.5 block text-[12.5px] text-fg-faint">PDF из интернет-банка</span>
             </span>
             <Upload className="size-4 text-fg-faint" />
           </button>
         </div>
       </section>
+
+      <div className="mt-6">
+        <InsightsCard />
+      </div>
 
       <p className="mt-6 px-6 text-center text-[11.5px] text-fg-faint">
         Palata · данные за сентябрь
