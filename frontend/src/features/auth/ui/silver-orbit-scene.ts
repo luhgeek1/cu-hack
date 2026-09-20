@@ -44,20 +44,58 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
   const sculpture = new THREE.Group();
   scene.add(sculpture);
 
-  // A substantial, rounded machined annulus, rather than a wireframe ring.
+  // Solid minted coin: satin face, polished raised rims, and a reeded edge.
   const profile = new THREE.Shape();
   profile.absarc(0, 0, 1.22, 0, Math.PI * 2, false);
-  const hole = new THREE.Path();
-  hole.absarc(0, 0, .79, 0, Math.PI * 2, true);
-  profile.holes.push(hole);
-  const ringGeometry = new THREE.ExtrudeGeometry(profile, { depth: .25, bevelEnabled: true, bevelSegments: 6, steps: 1, bevelSize: .095, bevelThickness: .095, curveSegments: 96 });
-  ringGeometry.center();
-  const ring = new THREE.Mesh(ringGeometry, silver);
-  sculpture.add(ring);
+  const coinGeometry = new THREE.ExtrudeGeometry(profile, { depth: .22, bevelEnabled: true, bevelSegments: 5, steps: 1, bevelSize: .045, bevelThickness: .045, curveSegments: 96 });
+  coinGeometry.center();
+  sculpture.add(new THREE.Mesh(coinGeometry, silver));
+  for (const side of [-1, 1]) {
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.15, .035, 12, 128), polished);
+    rim.position.z = side * .158;
+    sculpture.add(rim);
+    const innerRim = new THREE.Mesh(new THREE.TorusGeometry(1.04, .008, 8, 128), polished);
+    innerRim.position.z = side * .159;
+    sculpture.add(innerRim);
+  }
+  const reeds = new THREE.InstancedMesh(new THREE.BoxGeometry(.023, .034, .20), polished, 100);
+  const stamp = new THREE.Object3D();
+  for (let i = 0; i < reeds.count; i++) {
+    const angle = i / reeds.count * Math.PI * 2;
+    stamp.position.set(Math.cos(angle) * 1.245, Math.sin(angle) * 1.245, 0);
+    stamp.rotation.z = angle;
+    stamp.updateMatrix();
+    reeds.setMatrixAt(i, stamp.matrix);
+  }
+  reeds.instanceMatrix.needsUpdate = true;
+  sculpture.add(reeds);
 
-  const core = new THREE.Mesh(new THREE.SphereGeometry(.47, 48, 32), polished);
-  core.position.set(.02, .04, .23);
-  sculpture.add(core);
+  // An actual beveled relief, including the open counter of the ruble symbol.
+  const ruble = new THREE.Shape();
+  ruble.moveTo(-.34, -.59);
+  ruble.lineTo(-.34, -.33); ruble.lineTo(-.49, -.33);
+  ruble.lineTo(-.49, -.20); ruble.lineTo(-.34, -.20);
+  ruble.lineTo(-.34, -.05); ruble.lineTo(-.49, -.05);
+  ruble.lineTo(-.49, .10); ruble.lineTo(-.34, .10);
+  ruble.lineTo(-.34, .62); ruble.lineTo(.12, .62);
+  ruble.bezierCurveTo(.66, .62, .66, -.05, .12, -.05);
+  ruble.lineTo(-.12, -.05); ruble.lineTo(-.12, -.20);
+  ruble.lineTo(.28, -.20); ruble.lineTo(.28, -.33);
+  ruble.lineTo(-.12, -.33); ruble.lineTo(-.12, -.59);
+  ruble.closePath();
+  const counter = new THREE.Path();
+  counter.moveTo(-.12, .12); counter.lineTo(.10, .12);
+  counter.bezierCurveTo(.38, .12, .38, .43, .10, .43);
+  counter.lineTo(-.12, .43); counter.closePath();
+  ruble.holes.push(counter);
+  const reliefMaterial = new THREE.MeshPhysicalMaterial({ color: 0x68717c, metalness: 1, roughness: .27, clearcoat: .6 });
+  const reliefGeometry = new THREE.ExtrudeGeometry(ruble, { depth: .045, bevelEnabled: true, bevelSize: .018, bevelThickness: .018, bevelSegments: 3, curveSegments: 32 });
+  for (const side of [-1, 1]) {
+    const relief = new THREE.Mesh(reliefGeometry, reliefMaterial);
+    relief.position.z = side * .158;
+    relief.rotation.y = side === -1 ? Math.PI : 0;
+    sculpture.add(relief);
+  }
   const orbit = new THREE.Mesh(new THREE.TorusGeometry(1.62, .018, 10, 160), polished);
   orbit.rotation.set(1.1, -.35, -.4);
   sculpture.add(orbit);
@@ -101,7 +139,7 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     // Keep the complete silhouette in frame, including on short phones.
-    camera.position.z = Math.max(7.6, 7.1 / camera.aspect);
+    camera.position.z = Math.max(6.7, 6.25 / camera.aspect);
     camera.updateProjectionMatrix();
     draw();
   };
@@ -143,6 +181,7 @@ export function mountSilverOrbit(host: HTMLDivElement): (() => void) | undefined
     renderer.domElement.removeEventListener("webglcontextlost", contextLost);
     renderer.domElement.removeEventListener("webglcontextrestored", contextRestored);
     scene.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose(); });
+    reeds.dispose(); reliefMaterial.dispose();
     silver.dispose(); polished.dispose(); environment.dispose();
     renderer.dispose();
     renderer.forceContextLoss();

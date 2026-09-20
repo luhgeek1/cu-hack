@@ -18,10 +18,9 @@ export function SilverOrbit() {
     <div className="silver-orbit" aria-hidden="true">
       <div className="silver-orbit__halo" />
       <div ref={host} className="silver-orbit__scene">
-        <div className="silver-orbit__fallback"><span /></div>
+        <div className="silver-orbit__fallback"><span>₽</span></div>
       </div>
       <div className="silver-orbit__shadow" />
-      <span className="silver-orbit__signature">ЧЕСТНЫЙ МЕСЯЦ <i /> ВСЁ СХОДИТСЯ</span>
     </div>
   );
 }

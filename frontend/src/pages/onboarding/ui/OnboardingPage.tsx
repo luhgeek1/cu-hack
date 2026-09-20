@@ -6,6 +6,7 @@ import { Check, FileText, Upload } from "lucide-react";
 import { useAuth } from "@/app/providers/auth/useAuth";
 import { demoIntake, demoSummary } from "@/entities/finance";
 import { markOnboarded } from "@/features/onboarding/model/storage";
+import { OnboardingArtwork } from "@/features/auth/ui/OnboardingArtwork";
 import { ProcessingSteps } from "@/features/onboarding/ui/ProcessingSteps";
 import { money } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
@@ -57,8 +58,9 @@ export default function OnboardingPage() {
   }, [auth?.user?.email, navigate]);
 
   return (
-    <div className="min-h-dvh bg-ink">
-      <div className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-5 pb-8 safe-top">
+    <div className="min-h-dvh overflow-x-clip bg-ink">
+      <div className="relative isolate mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-5 pb-8 safe-top">
+        <OnboardingArtwork />
         <div className="flex items-center gap-3 pb-6 pt-1">
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-raised">
             <motion.div
@@ -89,6 +91,7 @@ export default function OnboardingPage() {
                 </p>
 
                 <div
+                  data-art-occluder
                   onDragOver={(event) => {
                     event.preventDefault();
                     setDragging(true);
@@ -293,7 +296,7 @@ export default function OnboardingPage() {
                   Выписка разобрана
                 </h1>
 
-                <div className="mt-6 rounded-3xl border border-line bg-surface p-5">
+                <div data-art-occluder className="mt-6 rounded-3xl border border-line bg-surface p-5">
                   <div className="flex items-baseline justify-between">
                     <span className="text-[13px] text-fg-muted">Банк списал</span>
                     <span className="tnum text-[15px] text-fg-muted">{money(demoSummary.bankSpent)}</span>
