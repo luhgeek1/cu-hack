@@ -98,8 +98,8 @@ export const VoiceButton = () => {
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] z-40 flex justify-center">
-        <div className="flex w-full max-w-[460px] justify-end px-5">
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:bottom-8 md:right-8 md:left-auto md:inset-x-auto z-40 flex justify-center md:justify-end">
+        <div className="flex w-full max-w-[460px] md:max-w-none justify-end px-5 md:px-0">
           <div className="pointer-events-auto flex items-center gap-2.5">
             <AnimatePresence>
               {recorder.isRecording ? (
@@ -107,7 +107,7 @@ export const VoiceButton = () => {
                   initial={{ opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 8 }}
-                  className="tnum flex items-center gap-2 rounded-full border border-clay/40 bg-surface/95 px-3 py-1.5 text-[12.5px] text-fg-muted backdrop-blur-xl"
+                  className="tnum flex items-center gap-2 rounded-full border border-clay/40 bg-surface/95 px-3 py-1.5 text-[12.5px] text-fg-muted backdrop-blur-xl shadow-lg"
                 >
                   <span className="size-1.5 animate-pulse rounded-full bg-clay" />
                   {timer(recorder.seconds)} / {timer(MAX_SECONDS)}
@@ -122,8 +122,9 @@ export const VoiceButton = () => {
               aria-label={label}
               aria-pressed={recorder.isRecording}
               className={cn(
-                "relative grid size-14 place-items-center rounded-full text-ink shadow-[0_10px_30px_-8px_rgba(0,0,0,0.8)] transition-colors",
-                recorder.isRecording ? "bg-clay" : "bg-sage",
+                "relative flex items-center justify-center gap-2.5 rounded-full text-ink shadow-[0_10px_30px_-8px_rgba(0,0,0,0.8)] transition-all active:scale-95 cursor-pointer",
+                recorder.isRecording ? "bg-clay" : "bg-sage hover:bg-emerald-400 md:hover:shadow-emerald-500/20",
+                "size-14 md:size-auto md:h-12 md:px-5",
                 busy && "opacity-70"
               )}
             >
@@ -131,12 +132,15 @@ export const VoiceButton = () => {
                 <span className="absolute inset-0 animate-ping rounded-full bg-clay/40" />
               ) : null}
               {busy ? (
-                <Loader2 className="size-6 animate-spin" strokeWidth={2} />
+                <Loader2 className="size-5 md:size-5 animate-spin" strokeWidth={2} />
               ) : recorder.isRecording ? (
-                <Square className="relative size-5 fill-current" strokeWidth={0} />
+                <Square className="relative size-4 fill-current" strokeWidth={0} />
               ) : (
-                <Mic className="size-6" strokeWidth={2} />
+                <Mic className="size-5 md:size-5" strokeWidth={2.2} />
               )}
+              <span className="hidden md:inline text-[13px] font-bold tracking-tight select-none">
+                {recorder.isRecording ? "Остановить" : busy ? "Обработка..." : "Голосовой ввод"}
+              </span>
             </button>
           </div>
         </div>

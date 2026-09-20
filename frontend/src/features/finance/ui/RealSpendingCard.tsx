@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ChevronDown } from 'lucide-react';
 import { useFinance, type PeriodSummary } from '@/entities/finance';
 import { money } from '@/shared/lib/format';
 
@@ -107,7 +109,7 @@ export const RealSpendingCard: React.FC<RealSpendingCardProps> = ({
             <button
               type="button"
               onClick={() => setShowBreakdown(!showBreakdown)}
-              className="w-full flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/15 px-4 py-2.5 transition-all text-left group"
+              className="w-full flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/15 px-4 py-2.5 transition-all text-left group cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-bold">
@@ -122,35 +124,49 @@ export const RealSpendingCard: React.FC<RealSpendingCardProps> = ({
                   </p>
                 </div>
               </div>
-              <span className="text-xs text-emerald-400 transition-transform duration-200 group-hover:translate-x-0.5">
-                {showBreakdown ? '▲' : '▼'}
-              </span>
+              <motion.div
+                animate={{ rotate: showBreakdown ? 180 : 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="text-emerald-400 p-0.5"
+              >
+                <ChevronDown className="size-4" />
+              </motion.div>
             </button>
 
-            {showBreakdown && (
-              <div className="mt-3 space-y-2 pt-2 border-t border-line">
-                <p className="text-[11px] font-medium text-fg-muted px-1">
-                  Почему эти суммы не считаются расходом:
-                </p>
-                {breakdown.length === 0 ? (
-                  <div className="p-3 rounded-xl bg-raised/80 border border-line text-xs text-fg-muted">
-                    Переводы себе, возвраты покупок и компенсации друзей.
+            <AnimatePresence initial={false}>
+              {showBreakdown && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-3 space-y-2 pt-2 border-t border-line">
+                    <p className="text-[11px] font-medium text-fg-muted px-1">
+                      Почему эти суммы не считаются расходом:
+                    </p>
+                    {breakdown.length === 0 ? (
+                      <div className="p-3 rounded-xl bg-raised/80 border border-line text-xs text-fg-muted">
+                        Переводы себе, возвраты покупок и компенсации друзей.
+                      </div>
+                    ) : (
+                      breakdown.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-raised/90 border border-line rounded-xl p-3 flex justify-between items-center gap-2"
+                        >
+                          <span className="text-xs font-medium text-fg">{item.label || item.type}</span>
+                          <span className="tnum text-xs font-bold text-emerald-400">
+                            −{money(item.amount ?? (item.amount_minor ? item.amount_minor / 100 : 0))}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
-                ) : (
-                  breakdown.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-raised/90 border border-line rounded-xl p-3 flex justify-between items-center gap-2"
-                    >
-                      <span className="text-xs font-medium text-fg">{item.label || item.type}</span>
-                      <span className="tnum text-xs font-bold text-emerald-400">
-                        −{money(item.amount ?? (item.amount_minor ? item.amount_minor / 100 : 0))}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>
