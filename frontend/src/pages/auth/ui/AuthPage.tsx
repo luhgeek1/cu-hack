@@ -7,6 +7,7 @@ import type { AuthCredentials } from "@/entities/auth/model";
 import { demoSummary } from "@/entities/finance";
 import { money } from "@/shared/lib/format";
 import { OnboardingArtwork } from "@/features/auth/ui/OnboardingArtwork";
+import { PalataLogo } from "@/shared/ui/PalataLogo";
 
 type Mode = "login" | "register";
 type Stage = "intro" | "form";
@@ -84,7 +85,7 @@ export default function AuthPage(): ReactElement {
             <ArrowLeft className="size-5" />
           </button>
         ) : (
-          <span className="text-[14px] font-semibold -tracking-[0.01em]">Честный месяц</span>
+          <PalataLogo variant="inline" size="sm" />
         )}
 
         <AnimatePresence mode="wait">

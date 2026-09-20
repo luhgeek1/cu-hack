@@ -94,7 +94,7 @@ export default function HomePage() {
               </span>
             </div>
             <div>
-              <p className="text-[11px] font-medium text-emerald-400">Честный месяц</p>
+              <p className="text-[11px] font-bold tracking-wider uppercase text-emerald-400">Palata</p>
               <h2 className="text-sm font-bold text-white">{userName}</h2>
             </div>
           </div>

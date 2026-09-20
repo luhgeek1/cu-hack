@@ -280,7 +280,7 @@ export default function ProfilePage() {
       </section>
 
       <p className="mt-6 px-6 text-center text-[11.5px] text-fg-faint">
-        Честный месяц · данные за сентябрь
+        Palata · данные за сентябрь
       </p>
 
       {/* Photo change bottom sheet */}

@@ -12,6 +12,7 @@ import { ReconcileStrip } from "@/features/reconcile/ui/ReconcileStrip";
 import { SpendDonut } from "@/features/reconcile/ui/SpendDonut";
 import { TotalBalanceCard } from "@/features/finance/ui/TotalBalanceCard";
 import { RealSpendingCard } from "@/features/finance/ui/RealSpendingCard";
+import { PalataLogo } from "@/shared/ui/PalataLogo";
 import { money, time } from "@/shared/lib/format";
 import { Segmented } from "@/shared/ui/Segmented";
 import { cn } from "@/shared/lib/utils";
@@ -39,9 +40,9 @@ export default function HomePage() {
   return (
     <>
       <header className="flex items-center justify-between px-5 md:px-0 pb-4 pt-5 safe-top">
-        <span className="text-[14px] md:text-[18px] font-semibold md:font-bold -tracking-[0.01em]">
-          Честный месяц
-        </span>
+        <div className="flex items-center gap-2">
+          <PalataLogo variant="badge" size="sm" />
+        </div>
         <span className="flex items-center gap-1.5 text-[12px] text-fg-faint">
           <span
             className={cn(

@@ -15,6 +15,8 @@ import { useProfile } from "@/features/profile/useProfile";
 import { time } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
+import { PalataLogo } from "@/shared/ui/PalataLogo";
+
 const NAV_ITEMS = [
   { to: "/", label: "Главная", icon: Wallet, end: true },
   { to: "/events", label: "События", icon: Layers, end: false, hasBadge: true },
@@ -41,26 +43,21 @@ export const DesktopSidebar = () => {
   const avatarUrl = profile?.profilePicUrl || localAvatar;
 
   return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col justify-between border-r border-line bg-[#0d0f12]/90 backdrop-blur-xl p-5 sticky top-0 h-screen z-30">
+    <aside className="hidden md:flex w-64 shrink-0 flex-col justify-between border-r border-line bg-[#0d0f12]/95 backdrop-blur-2xl p-5 fixed left-0 top-0 bottom-0 h-screen z-30 overflow-y-auto">
       <div className="space-y-6">
         {/* Brand Header */}
-        <div className="flex items-center gap-3 px-2 py-1">
-          <div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-black shadow-lg shadow-emerald-500/20 font-bold">
-            <Sparkles className="size-5 text-black" />
-          </div>
-          <div>
-            <h1 className="text-[15px] font-bold tracking-tight text-fg">Честный месяц</h1>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  isSyncing ? "bg-brass animate-pulse" : "bg-emerald-400"
-                )}
-              />
-              <span className="text-[11px] text-fg-faint">
-                {isSyncing ? "синхронизация" : `онлайн · ${accounts[0]?.lastSyncAt ? time(accounts[0].lastSyncAt) : "сейчас"}`}
-              </span>
-            </div>
+        <div className="px-1 py-1">
+          <PalataLogo variant="badge" size="md" className="w-full justify-center" />
+          <div className="flex items-center justify-center gap-1.5 mt-2.5">
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                isSyncing ? "bg-brass animate-pulse" : "bg-emerald-400"
+              )}
+            />
+            <span className="text-[11px] text-fg-faint">
+              {isSyncing ? "синхронизация" : `онлайн · ${accounts[0]?.lastSyncAt ? time(accounts[0].lastSyncAt) : "сейчас"}`}
+            </span>
           </div>
         </div>
 
