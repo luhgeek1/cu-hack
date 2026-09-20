@@ -35,11 +35,12 @@ export default function HomePage() {
     totalBalance,
     outstandingDebt,
     lastSyncedAt,
+    withAttention,
   } = useFinance();
   const [explainOpen, setExplainOpen] = useState(false);
   const [selected, setSelected] = useState<FinancialEvent | null>(null);
 
-  const recent = useMemo(() => events.slice(0, 6), [events]);
+  const recent = useMemo(() => events.slice(0, 6).map(withAttention), [events, withAttention]);
 
 
   const perDay = Math.round(summary.realExpense / (period === "month" ? today.getDate() : 1));

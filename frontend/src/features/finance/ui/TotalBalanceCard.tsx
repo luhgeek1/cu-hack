@@ -66,7 +66,7 @@ export const TotalBalanceCard: React.FC<TotalBalanceCardProps> = ({
               Подключенные банки:
             </p>
 
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
               {accounts.map((acc: any) => {
                 const isOzon = acc.bank === 'ozon' || acc.name?.toLowerCase().includes('ozon');
                 const rawBal = typeof acc.balance === 'number' ? acc.balance : (acc.balance_minor ? acc.balance_minor / 100 : 0);

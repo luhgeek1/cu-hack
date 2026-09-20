@@ -5,12 +5,49 @@ import { toast } from "sonner";
 import * as api from "../api/client";
 import type { ResolveAction } from "../api/dto";
 import { emptySummary, mapAccount, mapAttentionItem, mapEvent, mapSummary } from "./mappers";
+import { periodRange } from "./period";
 import type { Account, FinancialEvent, PeriodKey, PeriodSummary } from "./types";
+
+export type DateRange = { from: Date; to: Date };
+
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+/** Сдвиг якоря на шаг периода: день, неделя, месяц или год */
+const shiftDate = (key: PeriodKey, anchor: Date, step: number): Date => {
+  switch (key) {
+    case "day":
+      return addDays(anchor, step);
+    case "week":
+      return addDays(anchor, step * 7);
+    case "year":
+      return new Date(anchor.getFullYear() + step, anchor.getMonth(), 1);
+    case "month":
+    default:
+      return new Date(anchor.getFullYear(), anchor.getMonth() + step, 1);
+  }
+};
 
 type FinanceContextValue = {
   today: Date;
   period: PeriodKey;
   setPeriod: (period: PeriodKey) => void;
+  /** Какой именно период показываем: якорная дата внутри него */
+  anchor: Date;
+  /** Перейти к конкретной дате — календарь и тап по соседнему дню */
+  setAnchor: (date: Date) => void;
+  /** Диапазон, выбранный календарём; пока задан, сегменты периода не действуют */
+  range: DateRange | null;
+  setRange: (range: DateRange | null) => void;
+  /** Листание периодов: −1 назад, +1 вперёд */
+  shiftPeriod: (step: number) => void;
+  /** Вперёд нельзя уйти дальше периода, в котором мы живём */
+  canGoForward: boolean;
   summary: PeriodSummary;
   /** Последние события с дашборда */
   events: FinancialEvent[];
@@ -27,6 +64,8 @@ type FinanceContextValue = {
   resolve: (eventId: string, optionId: string) => void;
   /** Свободный ответ пользователя: сопоставляем с доступными вариантами */
   resolveCustom: (eventId: string, text: string) => void;
+  /** Списочное событие + вопрос и варианты из /attention, если они там есть */
+  withAttention: (event: FinancialEvent) => FinancialEvent;
   refresh: () => void;
 };
 
@@ -35,12 +74,45 @@ const FinanceContext = createContext<FinanceContextValue | null>(null);
 /** Всё финансовое в приложении приходит из бэкенда через эти запросы */
 export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
-  const [period, setPeriod] = useState<PeriodKey>("month");
+  const [period, setPeriodState] = useState<PeriodKey>("month");
   const today = useMemo(() => new Date(), []);
+  const [anchor, setAnchorState] = useState<Date>(() => startOfDay(new Date()));
+  const [range, setRange] = useState<DateRange | null>(null);
+
+  const setAnchor = useCallback((date: Date) => {
+    setRange(null);
+    setAnchorState(startOfDay(date));
+  }, []);
+
+  // Календарь и сегменты — взаимоисключающие способы задать период
+  const setPeriod = useCallback((next: PeriodKey) => {
+    setRange(null);
+    setPeriodState(next);
+  }, []);
+
+  const shiftPeriod = useCallback(
+    (step: number) => {
+      setRange((current) => {
+        if (!current) return current;
+        const span = Math.round((current.to.getTime() - current.from.getTime()) / 86_400_000) + 1;
+        return { from: addDays(current.from, step * span), to: addDays(current.to, step * span) };
+      });
+      setAnchorState((current) => (range ? current : shiftDate(period, current, step)));
+    },
+    [period, range]
+  );
+
+  const canGoForward = useMemo(() => {
+    if (range) return range.to < startOfDay(today);
+    return periodRange(period, anchor).to < startOfDay(today);
+  }, [anchor, period, range, today]);
 
   const dashboard = useQuery({
-    queryKey: ["finance", "dashboard", period],
-    queryFn: () => api.getDashboard(period, today),
+    queryKey: range
+      ? ["finance", "dashboard", "range", range.from.toDateString(), range.to.toDateString()]
+      : ["finance", "dashboard", period, anchor.toDateString()],
+    queryFn: () =>
+      range ? api.getDashboardRange(range.from, range.to) : api.getDashboard(period, anchor),
     staleTime: 30_000,
   });
 
@@ -73,6 +145,23 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const needsAttention = useMemo(
     () => (attention.data?.items ?? []).map(mapAttentionItem),
     [attention.data]
+  );
+
+  /**
+   * В /events и /dashboard вопрос и варианты не приходят — они живут только
+   * в /attention. Без этого карточка события превращалась в тупик:
+   * «требует внимания», а решить нечем.
+   */
+  const withAttention = useCallback(
+    (event: FinancialEvent): FinancialEvent => {
+      if (event.status !== "needs_attention" || event.options?.length) return event;
+
+      const item = needsAttention.find((candidate) => candidate.id === event.id);
+      if (!item) return event;
+
+      return { ...event, question: item.question, subtitle: item.subtitle, options: item.options };
+    },
+    [needsAttention]
   );
 
   const resolve = useCallback(
@@ -138,9 +227,9 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const summary = useMemo(
     () =>
       dashboard.data
-        ? mapSummary(period, today, dashboard.data.summary, dashboard.data.comparison)
-        : emptySummary(period, today),
-    [dashboard.data, period, today]
+        ? mapSummary(period, anchor, dashboard.data.summary, dashboard.data.comparison, range ?? undefined)
+        : emptySummary(period, anchor),
+    [anchor, dashboard.data, period, range]
   );
 
   const value = useMemo<FinanceContextValue>(() => {
@@ -150,6 +239,12 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       today,
       period,
       setPeriod,
+      anchor,
+      setAnchor,
+      range,
+      setRange,
+      shiftPeriod,
+      canGoForward,
       summary,
       events: (dashboard.data?.recent_events ?? []).map(mapEvent),
       accounts,
@@ -164,9 +259,16 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       error: dashboard.error,
       resolve,
       resolveCustom,
+      withAttention,
       refresh: () => queryClient.invalidateQueries({ queryKey: ["finance"] }),
     };
   }, [
+    anchor,
+    setAnchor,
+    canGoForward,
+    range,
+    setPeriod,
+    shiftPeriod,
     dashboard.data,
     dashboard.isLoading,
     dashboard.isFetching,
@@ -176,6 +278,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     period,
     resolve,
     resolveCustom,
+    withAttention,
     resolveMutation.isPending,
     summary,
     today,

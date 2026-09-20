@@ -15,7 +15,7 @@ type EventSheetProps = {
 };
 
 export const EventSheet = ({ event, onClose }: EventSheetProps) => {
-  const { resolve, resolveCustom, accounts } = useFinance();
+  const { resolve, resolveCustom, accounts, withAttention } = useFinance();
   const [draft, setDraft] = useState("");
 
   /** Новый вопрос — чистое поле */
@@ -35,7 +35,9 @@ export const EventSheet = ({ event, onClose }: EventSheetProps) => {
 
   if (!event) return <BottomSheet open={false} onClose={onClose} />;
 
-  const attention = event.status === "needs_attention";
+  /** Вопрос и варианты приходят отдельным запросом — добираем их здесь */
+  const current = withAttention(event);
+  const attention = current.status === "needs_attention";
   const transactions = detail.data?.transactions ?? [];
   const hasGraph = transactions.length > 1;
 
@@ -89,18 +91,18 @@ export const EventSheet = ({ event, onClose }: EventSheetProps) => {
       <div className="space-y-4">
         {attention ? operations : null}
 
-        {attention && event.options ? (
-          <div className="overflow-hidden rounded-2xl border border-sage/40 bg-gradient-to-b from-sage-dim to-raised p-4 shadow-[0_14px_34px_-20px_rgba(5,150,105,0.55)]">
+        {attention && current.options?.length ? (
+          <div className="overflow-hidden rounded-2xl border border-sage/40 bg-gradient-to-b from-sage-dim to-raised p-4">
             <span className="flex items-center gap-2 text-[12.5px] text-sage-strong">
               <span className="size-1.5 rounded-full bg-sage-strong" />
               Нужно решить
             </span>
 
-            <p className="mt-2.5 text-[17px] font-semibold leading-snug">{event.question}</p>
-            {event.reason ? <p className="mt-1 text-[13px] text-fg-muted">{event.reason}</p> : null}
+            <p className="mt-2.5 text-[17px] font-semibold leading-snug">{current.question}</p>
+            {current.reason ? <p className="mt-1 text-[13px] text-fg-muted">{current.reason}</p> : null}
 
-            <div className="no-scrollbar -mx-4 mt-3.5 flex gap-2 overflow-x-auto px-4">
-              {event.options.map((option) => (
+            <div className="no-scrollbar mt-3.5 flex gap-2 overflow-x-auto">
+              {current.options.map((option) => (
                 <button
                   key={option.id}
                   type="button"
@@ -108,7 +110,7 @@ export const EventSheet = ({ event, onClose }: EventSheetProps) => {
                     resolve(event.id, option.id);
                     onClose();
                   }}
-                  className="shrink-0 whitespace-nowrap rounded-full border border-line-strong bg-surface px-3.5 py-2.5 text-[13px] font-medium transition-colors hover:border-sage hover:text-sage-strong"
+                  className="max-w-[62%] shrink-0 truncate rounded-full border border-line-strong bg-surface px-3.5 py-2.5 text-[13px] font-medium transition-colors hover:border-sage hover:text-sage-strong"
                 >
                   {option.label}
                 </button>

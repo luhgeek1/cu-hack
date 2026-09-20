@@ -25,14 +25,14 @@ export const EventRow = ({ event, onSelect }: EventRowProps) => {
   }
 
   const amount = attention
-    ? { text: money(event.amount), className: "text-emerald-400 font-extrabold" }
+    ? { text: money(event.amount), className: "text-fg font-semibold" }
     : event.effectiveIncome > 0
       ? { text: money(event.effectiveIncome, { sign: true }), className: "text-sage-strong" }
       : event.effectiveExpense > 0
         ? { text: money(-event.effectiveExpense, { sign: true }), className: "text-fg" }
         : { text: money(gross || event.amount), className: "text-fg-faint line-through decoration-line-strong" };
 
-  // Специальное яркое и заметное оформление для операций, требующих внимания (со скриншота)
+  /** Событие с вопросом: выделяем оттенком подложки, а не свечением */
   if (attention) {
     return (
       <div
@@ -45,57 +45,41 @@ export const EventRow = ({ event, onSelect }: EventRowProps) => {
             onSelect(event);
           }
         }}
-        className="w-full text-left my-2.5 rounded-2xl border-2 border-emerald-500/60 bg-gradient-to-r from-emerald-950/40 via-[#14181a] to-surface p-3.5 shadow-lg shadow-emerald-950/50 relative overflow-hidden transition-all hover:border-emerald-400 hover:shadow-emerald-500/15 active:scale-[0.99] cursor-pointer group"
+        className="group my-2 w-full cursor-pointer rounded-2xl border border-sage/35 bg-gradient-to-b from-sage-dim/70 to-raised p-3.5 text-left transition-colors hover:border-sage/55"
       >
-        {/* Subtle emerald glow in background */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
-
-        {/* Top Header Badge */}
-        <div className="flex items-center justify-between mb-2.5 relative z-10">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10.5px] font-bold uppercase tracking-wider border border-emerald-500/40">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Требует внимания
+        <div className="mb-2.5 flex items-center justify-between">
+          <span className="flex items-center gap-2 text-[12.5px] text-sage-strong">
+            <span className="size-1.5 rounded-full bg-sage-strong" />
+            Нужно решить
           </span>
 
-          <span className="flex items-center gap-0.5 text-[11.5px] font-semibold text-emerald-400 group-hover:text-emerald-300 transition-colors">
+          <span className="flex items-center gap-0.5 text-[12.5px] text-fg-muted transition-colors group-hover:text-fg">
             Решить
-            <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            <ChevronRight className="size-3.5" />
           </span>
         </div>
 
-        {/* Main transaction details row */}
-        <div className="flex items-center gap-3 relative z-10">
-          {/* Question circle icon matching screenshot */}
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-emerald-500/80 bg-emerald-950/70 text-emerald-400 shadow-md shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-            <HelpCircle className="size-5 text-emerald-400" strokeWidth={2.2} />
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-sage-strong">
+            <HelpCircle className="size-[18px]" strokeWidth={1.8} />
           </span>
 
           <div className="min-w-0 flex-1">
-            <span className="truncate text-[15.5px] font-bold text-fg block tracking-tight">
-              {event.title}
-            </span>
-            <span className="mt-0.5 block text-[13px] font-medium text-emerald-300/90 leading-tight">
+            <span className="block truncate text-[15px] font-semibold">{event.title}</span>
+            <span className="mt-0.5 block truncate text-[12.5px] text-fg-muted">
               {event.question || event.subtitle || "Что это за операция?"}
             </span>
           </div>
 
-          <div className="shrink-0 text-right">
-            <span className="tnum block text-[17px] font-black text-emerald-400">
-              {amount.text}
-            </span>
-          </div>
+          <span className="tnum shrink-0 text-[15px] font-semibold text-fg">{amount.text}</span>
         </div>
 
-        {/* 1-tap quick options directly inside the card */}
         {event.options && event.options.length > 0 && resolveFn && (
           <div
-            className="mt-3 pt-2.5 border-t border-emerald-500/20 flex items-center gap-1.5 overflow-x-auto no-scrollbar relative z-10"
+            className="no-scrollbar mt-3 flex items-center gap-2 overflow-x-auto border-t border-line pt-3"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <span className="text-[10px] uppercase font-bold text-fg-faint shrink-0 mr-1">
-              В 1 тап:
-            </span>
             {event.options.map((opt) => (
               <button
                 key={opt.id}
@@ -104,7 +88,7 @@ export const EventRow = ({ event, onSelect }: EventRowProps) => {
                   e.stopPropagation();
                   resolveFn?.(event.id, opt.id);
                 }}
-                className="shrink-0 whitespace-nowrap rounded-xl border border-line-strong bg-raised hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:text-emerald-300 px-3 py-1.5 text-[12px] font-medium text-fg-muted transition-all active:scale-95 shadow-xs"
+                className="max-w-[62%] shrink-0 truncate rounded-full border border-line-strong bg-surface px-3.5 py-2 text-[13px] font-medium transition-colors hover:border-sage hover:text-sage-strong"
               >
                 {opt.label}
               </button>

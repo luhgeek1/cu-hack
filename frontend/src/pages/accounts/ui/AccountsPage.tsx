@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Plus, RefreshCw, ShieldCheck } from "lucide-react";
+import { Banknote, Check, Plus, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -76,12 +76,19 @@ export default function AccountsPage() {
                 key={account.id}
                 className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3.5 shadow-xs hover:border-line-strong transition-colors"
               >
-                <span
-                  className="flex size-10 shrink-0 items-center justify-center rounded-2xl text-[15px] font-bold"
-                  style={{ backgroundColor: meta?.color, color: meta?.ink }}
-                >
-                  {meta?.short}
-                </span>
+                {meta ? (
+                  <span
+                    className="flex size-10 shrink-0 items-center justify-center rounded-2xl text-[15px] font-bold"
+                    style={{ backgroundColor: meta.color, color: meta.ink }}
+                  >
+                    {meta.short}
+                  </span>
+                ) : (
+                  /* Наличные и прочие небанковские счета: купюры вместо буквы банка */
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-line-strong bg-raised text-fg-muted">
+                    <Banknote className="size-5" strokeWidth={1.8} />
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14.5px] font-medium">{account.bankName}</span>
                   <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-fg-faint">
