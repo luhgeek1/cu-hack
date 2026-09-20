@@ -22,7 +22,7 @@ export const EventRow = ({ event, onSelect }: EventRowProps) => {
   const attention = event.status === "needs_attention";
 
   const amount = attention
-    ? { text: money(event.amount), className: "text-brass" }
+    ? { text: money(event.amount), className: "text-sage-strong" }
     : event.effectiveIncome > 0
       ? { text: money(event.effectiveIncome, { sign: true }), className: "text-sage-strong" }
       : event.effectiveExpense > 0
@@ -38,7 +38,7 @@ export const EventRow = ({ event, onSelect }: EventRowProps) => {
       <span
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-full border",
-          attention ? "border-brass/40 bg-brass-dim text-brass" : "border-line bg-raised text-fg-muted"
+          attention ? "border-sage/40 bg-sage-dim text-sage-strong" : "border-line bg-raised text-fg-muted"
         )}
       >
         <Icon className="size-[18px]" strokeWidth={1.8} />

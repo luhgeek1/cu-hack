@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Camera, Check, ChevronRight, LogOut, Pencil } from "lucide-react";
+import { Camera, Check, ChevronRight, LogOut, Pencil, RotateCcw } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth/useAuth";
 import { eventsInPeriod, useFinance } from "@/entities/finance";
 import { bankMeta } from "@/entities/finance/ui/meta";
+import { resetOnboarding } from "@/features/onboarding/model/storage";
 import { useProfile, useUpdateProfile, useUploadAvatar } from "@/features/profile/useProfile";
 import { money, percent } from "@/shared/lib/format";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
@@ -18,6 +19,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default function ProfilePage() {
   const auth = useAuth();
+  const navigate = useNavigate();
   const { data: profile } = useProfile();
   const { mutate: upload, isPending: isUploading } = useUploadAvatar();
   const { mutate: save, isPending: isSaving } = useUpdateProfile();
@@ -198,6 +200,21 @@ export default function ProfilePage() {
             </span>
             <ChevronRight className="size-4 text-fg-faint" />
           </Link>
+
+          <button
+            type="button"
+            onClick={() => {
+              resetOnboarding(email);
+              navigate("/onboarding");
+            }}
+            className="flex w-full items-center justify-between border-t border-line px-4 py-4 text-left transition-colors hover:bg-raised/50"
+          >
+            <span>
+              <span className="block text-[14.5px] font-medium">Загрузить новую выписку</span>
+              <span className="mt-0.5 block text-[12.5px] text-fg-faint">Пройти разбор заново</span>
+            </span>
+            <RotateCcw className="size-4 text-fg-faint" />
+          </button>
         </div>
       </section>
 
