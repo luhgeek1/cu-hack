@@ -13,6 +13,7 @@ import type {
   PageDto,
   ResolveAction,
   ResolveResultDto,
+  SpendingAdviceDto,
   StatementPreviewDto,
   StatementResultDto,
 } from "./dto";
@@ -29,6 +30,21 @@ export const isoDate = (date: Date): string =>
 export const getDashboard = async (period: PeriodParam, date: Date): Promise<DashboardDto> => {
   const { data } = await apiProtected.get<DashboardDto>("/dashboard", {
     params: { period, date: isoDate(date), timezone: TZ },
+  });
+  return data;
+};
+
+/** Произвольный диапазон: бэкенд принимает start_date/end_date вместо period */
+export const getDashboardRange = async (from: Date, to: Date): Promise<DashboardDto> => {
+  const { data } = await apiProtected.get<DashboardDto>("/dashboard", {
+    params: { start_date: isoDate(from), end_date: isoDate(to), timezone: TZ },
+  });
+  return data;
+};
+
+export const getAnalyticsRange = async (from: Date, to: Date): Promise<AnalyticsDto> => {
+  const { data } = await apiProtected.get<AnalyticsDto>("/analytics", {
+    params: { start_date: isoDate(from), end_date: isoDate(to), timezone: TZ },
   });
   return data;
 };
@@ -163,6 +179,14 @@ export type DigestDto = {
 export const getDigest = async (date: Date): Promise<DigestDto> => {
   const { data } = await apiProtected.get<DigestDto>("/digest", {
     params: { date: isoDate(date), timezone: TZ },
+  });
+  return data;
+};
+
+/** Советы по тратам: модель или детерминированный разбор на бэкенде */
+export const getInsights = async (period: PeriodParam, date: Date): Promise<SpendingAdviceDto> => {
+  const { data } = await apiProtected.get<SpendingAdviceDto>("/insights", {
+    params: { period, date: isoDate(date), timezone: TZ },
   });
   return data;
 };

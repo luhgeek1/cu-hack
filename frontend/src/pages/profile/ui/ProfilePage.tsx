@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { financeApi, periodRange, useFinance } from "@/entities/finance";
 import { bankMeta } from "@/entities/finance/ui/meta";
+import { InsightsCard } from "@/features/insights/ui/InsightsCard";
 import { resetOnboarding } from "@/features/onboarding/model/storage";
 import { useProfile, useUpdateProfile, useUploadAvatar } from "@/features/profile/useProfile";
 import { money, percent } from "@/shared/lib/format";
@@ -227,6 +228,10 @@ export default function ProfilePage() {
           <Stat label="Дней с нами" value={String(daysWithUs)} />
         </div>
       </section>
+
+      <div className="mt-6">
+        <InsightsCard />
+      </div>
 
       <section className="mt-5 px-5 md:px-0">
         <h2 className="px-1 pb-2 text-[13px] text-fg-faint">Настройки</h2>

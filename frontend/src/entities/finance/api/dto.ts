@@ -211,3 +211,16 @@ export type ResolveResultDto = {
   needs_attention_count: number;
   refresh: string[];
 };
+
+export type SpendingInsightDto = {
+  title: string;
+  message: string;
+  category: BackendCategory | null;
+  action: string;
+};
+
+export type SpendingAdviceDto = {
+  basis: PeriodSummaryDto;
+  insights: SpendingInsightDto[];
+  disclaimer: string;
+};
