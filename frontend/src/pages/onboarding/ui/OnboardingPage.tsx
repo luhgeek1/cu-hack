@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { financeApi, useFinance } from "@/entities/finance";
-import type { DashboardDto, ImportResultDto } from "@/entities/finance/api/dto";
+import type { DashboardDto, ImportResultDto, StatementResultDto } from "@/entities/finance/api/dto";
 import { markOnboarded } from "@/features/onboarding/model/storage";
 import { OnboardingArtwork } from "@/features/auth/ui/OnboardingArtwork";
 import { ProcessingSteps } from "@/features/onboarding/ui/ProcessingSteps";
@@ -40,6 +40,7 @@ export default function OnboardingPage() {
   const { today, summary } = useFinance();
   const [result, setResult] = useState<ImportResultDto | null>(null);
   const [finalDashboard, setFinalDashboard] = useState<DashboardDto | null>(null);
+  const [statementPeriod, setStatementPeriod] = useState<Pick<StatementResultDto["statement"], "start_date" | "end_date"> | null>(null);
 
   /** Честно показываем, что маркетплейсы — импорт файлов, а не живая синхронизация */
   const integrations = useQuery({
@@ -61,6 +62,7 @@ export default function OnboardingPage() {
     },
     onSuccess: (statement) => {
       setResult(statement.import_result);
+      setStatementPeriod({ start_date: statement.statement.start_date, end_date: statement.statement.end_date });
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       setStep("services");
     },
@@ -78,6 +80,7 @@ export default function OnboardingPage() {
     mutationFn: () => financeApi.loadDemo(today),
     onSuccess: (importResult) => {
       setResult(importResult);
+      setStatementPeriod(null);
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       setStep("services");
     },
@@ -115,16 +118,25 @@ export default function OnboardingPage() {
 
   const showImportedResult = useCallback(async () => {
     try {
+      const periodKey = statementPeriod
+        ? ["finance", "dashboard", "statement", statementPeriod.start_date, statementPeriod.end_date]
+        : ["finance", "dashboard", "month"];
       const dashboard = await queryClient.fetchQuery({
-        queryKey: ["finance", "dashboard", "month"],
-        queryFn: () => financeApi.getDashboard("month", today),
+        queryKey: periodKey,
+        queryFn: () => statementPeriod
+          ? financeApi.getDashboardRange(
+              new Date(`${statementPeriod.start_date}T12:00:00`),
+              new Date(`${statementPeriod.end_date}T12:00:00`)
+            )
+          : financeApi.getDashboard("month", today),
+        staleTime: 0,
       });
       setFinalDashboard(dashboard);
     } catch {
       toast.error("Не удалось обновить итог после импорта");
     }
     setStep("done");
-  }, [queryClient, today]);
+  }, [queryClient, statementPeriod, today]);
 
   const bankSpent = finalDashboard ? finalDashboard.summary.bank_outflow_minor / 100 : summary.bankSpent;
   const realExpense = finalDashboard ? finalDashboard.summary.real_expense_minor / 100 : summary.realExpense;
