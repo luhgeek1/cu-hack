@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "motion/react";
 import {
   AreaChart,
   Area,
@@ -114,16 +115,13 @@ export const SpendAnalyticsChart: React.FC<SpendAnalyticsChartProps> = ({
 
   return (
     <div className="rounded-3xl border border-line bg-surface/90 p-4 md:p-6 shadow-xl relative overflow-hidden">
-      {/* Background ambient lighting */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-
       {/* Chart Header & Controls */}
       <div className="flex items-center justify-between mb-4 relative z-10">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-fg-muted">
             График динамики трат
           </span>
-          {average > 0 && (
+          {average > 0 && period !== "day" && (
             <p className="text-[12px] text-fg-faint mt-0.5">
               В среднем: <strong className="text-fg font-semibold">{compactMoney(average)}</strong> в день
             </p>
@@ -136,7 +134,7 @@ export const SpendAnalyticsChart: React.FC<SpendAnalyticsChartProps> = ({
             type="button"
             onClick={() => setChartType("area")}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-all active:scale-95",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-all active:scale-95 cursor-pointer",
               chartType === "area"
                 ? "bg-surface text-emerald-400 shadow-sm border border-emerald-500/30"
                 : "text-fg-muted hover:text-fg"
@@ -149,7 +147,7 @@ export const SpendAnalyticsChart: React.FC<SpendAnalyticsChartProps> = ({
             type="button"
             onClick={() => setChartType("bar")}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-all active:scale-95",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-all active:scale-95 cursor-pointer",
               chartType === "bar"
                 ? "bg-surface text-emerald-400 shadow-sm border border-emerald-500/30"
                 : "text-fg-muted hover:text-fg"
@@ -162,115 +160,139 @@ export const SpendAnalyticsChart: React.FC<SpendAnalyticsChartProps> = ({
       </div>
 
       {/* Main Recharts Container */}
-      <div className="h-[210px] w-full relative z-10">
-        <ResponsiveContainer width="100%" height="100%">
-          {chartType === "area" ? (
-            <AreaChart data={chartData} margin={{ top: 12, right: 8, left: -22, bottom: 0 }}>
-              <defs>
-                <linearGradient id="spendAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
-                  <stop offset="60%" stopColor="#10b981" stopOpacity={0.12} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
+      <div className="h-[210px] w-full relative z-10 overflow-hidden">
+        <motion.div
+          key={`${chartType}-${period}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="h-full w-full"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === "area" ? (
+              <AreaChart
+                key={`area-${period}`}
+                data={chartData}
+                margin={{ top: 12, right: 8, left: -22, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="spendAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
+                    <stop offset="60%" stopColor="#10b981" stopOpacity={0.12} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
 
-              <XAxis
-                dataKey="name"
-                stroke="#52525b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                interval={series.length > 15 ? 4 : 0}
-              />
-              <YAxis
-                stroke="#52525b"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => (val === 0 ? "0" : compactMoney(val))}
-              />
-
-              <Tooltip content={<CustomTooltip average={average} />} />
-
-              {average > 0 && (
-                <ReferenceLine
-                  y={average}
-                  stroke="#eab308"
-                  strokeDasharray="3 3"
-                  strokeOpacity={0.7}
+                <XAxis
+                  dataKey="name"
+                  stroke="#52525b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={series.length > 15 ? 4 : 0}
                 />
-              )}
-
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#10b981"
-                strokeWidth={2.5}
-                fill="url(#spendAreaGradient)"
-                activeDot={{
-                  r: 6,
-                  fill: "#10b981",
-                  stroke: "#ffffff",
-                  strokeWidth: 2,
-                  className: "shadow-lg shadow-emerald-500/50",
-                }}
-              />
-            </AreaChart>
-          ) : (
-            <BarChart data={chartData} margin={{ top: 12, right: 8, left: -22, bottom: 0 }}>
-              <XAxis
-                dataKey="name"
-                stroke="#52525b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                interval={series.length > 15 ? 4 : 0}
-              />
-              <YAxis
-                stroke="#52525b"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => (val === 0 ? "0" : compactMoney(val))}
-              />
-
-              <Tooltip content={<CustomTooltip average={average} />} cursor={false} />
-
-              {average > 0 && (
-                <ReferenceLine
-                  y={average}
-                  stroke="#eab308"
-                  strokeDasharray="3 3"
-                  strokeOpacity={0.7}
+                <YAxis
+                  stroke="#52525b"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) => (val === 0 ? "0" : compactMoney(val))}
                 />
-              )}
 
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={
-                      entry.isCurrent
-                        ? "#10b981"
-                        : entry.isFuture
-                        ? "rgba(82, 82, 91, 0.25)"
-                        : entry.value > average
-                        ? "#059669"
-                        : "rgba(113, 113, 122, 0.55)"
-                    }
+                <Tooltip content={<CustomTooltip average={average} />} />
+
+                {average > 0 && period !== "day" && (
+                  <ReferenceLine
+                    y={average}
+                    stroke="#eab308"
+                    strokeDasharray="3 3"
+                    strokeOpacity={0.7}
                   />
-                ))}
-              </Bar>
-            </BarChart>
-          )}
-        </ResponsiveContainer>
+                )}
+
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  fill="url(#spendAreaGradient)"
+                  isAnimationActive={true}
+                  animationDuration={350}
+                  animationEasing="ease-out"
+                  activeDot={{
+                    r: 5,
+                    fill: "#10b981",
+                    stroke: "#ffffff",
+                    strokeWidth: 2,
+                  }}
+                />
+              </AreaChart>
+            ) : (
+              <BarChart
+                key={`bar-${period}`}
+                data={chartData}
+                margin={{ top: 12, right: 8, left: -22, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="name"
+                  stroke="#52525b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={series.length > 15 ? 4 : 0}
+                />
+                <YAxis
+                  stroke="#52525b"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) => (val === 0 ? "0" : compactMoney(val))}
+                />
+
+                <Tooltip content={<CustomTooltip average={average} />} cursor={false} />
+
+                {average > 0 && period !== "day" && (
+                  <ReferenceLine
+                    y={average}
+                    stroke="#eab308"
+                    strokeDasharray="3 3"
+                    strokeOpacity={0.7}
+                  />
+                )}
+
+                <Bar
+                  dataKey="value"
+                  radius={[6, 6, 0, 0]}
+                  isAnimationActive={true}
+                  animationDuration={350}
+                  animationEasing="ease-out"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={
+                        entry.isCurrent
+                          ? "#10b981"
+                          : entry.isFuture
+                          ? "rgba(82, 82, 91, 0.25)"
+                          : entry.value > average
+                          ? "#059669"
+                          : "rgba(113, 113, 122, 0.55)"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        </motion.div>
       </div>
 
       {/* Highlights Bar underneath the chart */}
       <div className="mt-4 pt-3.5 border-t border-line/80 grid grid-cols-3 gap-2 text-center relative z-10">
         <div className="bg-raised/60 border border-line rounded-2xl p-2.5">
           <span className="text-[10.5px] font-semibold text-fg-faint uppercase block">
-            Пик периода
+            {period === "day" ? "Пик за день" : "Пик периода"}
           </span>
           <span className="tnum text-[14px] font-bold text-fg mt-0.5 block">
             {compactMoney(peak)}
@@ -279,16 +301,16 @@ export const SpendAnalyticsChart: React.FC<SpendAnalyticsChartProps> = ({
 
         <div className="bg-raised/60 border border-line rounded-2xl p-2.5">
           <span className="text-[10.5px] font-semibold text-fg-faint uppercase block">
-            Средний чек/день
+            {period === "day" ? "Всего за день" : "Средний чек/день"}
           </span>
           <span className="tnum text-[14px] font-bold text-emerald-400 mt-0.5 block">
-            {compactMoney(average)}
+            {compactMoney(period === "day" ? series.reduce((s, p) => s + p.value, 0) : average)}
           </span>
         </div>
 
         <div className="bg-raised/60 border border-line rounded-2xl p-2.5">
           <span className="text-[10.5px] font-semibold text-fg-faint uppercase block">
-            Дней без трат
+            {period === "day" ? "Интервалов без трат" : "Дней без трат"}
           </span>
           <span className="tnum text-[14px] font-bold text-fg mt-0.5 block">
             {zeroDays}
