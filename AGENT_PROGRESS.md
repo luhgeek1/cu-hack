@@ -307,6 +307,7 @@ Follow-up fix:
 - Calibrated the six column boundaries against the supplied real T-Bank PDF and corrected reference-number extraction.
 - Real-file verification: 6 pages parsed, 115 transactions written to `backend/statement.json`.
 - Full statement JSON uses the backend money contract: integer kopecks such as `amount_minor=-12220`.
+
 ---
 
 ## [DONE] Frontend Honest Month Integration & Visual Analytics
