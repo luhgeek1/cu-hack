@@ -39,6 +39,7 @@ export default function OnboardingPage() {
   const queryClient = useQueryClient();
   const { today, summary } = useFinance();
   const [result, setResult] = useState<ImportResultDto | null>(null);
+  const [importedStatement, setImportedStatement] = useState<StatementResultDto["statement"] | null>(null);
   const [finalDashboard, setFinalDashboard] = useState<DashboardDto | null>(null);
   const [statementPeriod, setStatementPeriod] = useState<Pick<StatementResultDto["statement"], "start_date" | "end_date"> | null>(null);
 
@@ -62,6 +63,7 @@ export default function OnboardingPage() {
     },
     onSuccess: (statement) => {
       setResult(statement.import_result);
+      setImportedStatement(statement.statement);
       setStatementPeriod({ start_date: statement.statement.start_date, end_date: statement.statement.end_date });
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       setStep("services");
@@ -80,6 +82,7 @@ export default function OnboardingPage() {
     mutationFn: () => financeApi.loadDemo(today),
     onSuccess: (importResult) => {
       setResult(importResult);
+      setImportedStatement(null);
       setStatementPeriod(null);
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       setStep("services");
@@ -138,8 +141,13 @@ export default function OnboardingPage() {
     setStep("done");
   }, [queryClient, statementPeriod, today]);
 
-  const bankSpent = finalDashboard ? finalDashboard.summary.bank_outflow_minor / 100 : summary.bankSpent;
-  const realExpense = finalDashboard ? finalDashboard.summary.real_expense_minor / 100 : summary.realExpense;
+  const statementBankSpent = (importedStatement?.computed_outflow_minor ?? 0) / 100;
+  const dashboardBankSpent = (finalDashboard?.summary.bank_outflow_minor ?? 0) / 100;
+  const dashboardRealExpense = (finalDashboard?.summary.real_expense_minor ?? 0) / 100;
+  // The import response is authoritative for the uploaded statement; dashboard may still be refetching.
+  const bankSpent = statementBankSpent || dashboardBankSpent || summary.bankSpent;
+  const realExpense = dashboardRealExpense || statementBankSpent || summary.realExpense;
+  const operationCount = importedStatement?.transactions.length ?? result?.imported_count ?? 0;
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-ink">
@@ -404,7 +412,7 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="mt-2 grid grid-cols-3 gap-2">
-                  <Tile value={String(result?.imported_count ?? 0)} label="операций" />
+                  <Tile value={String(operationCount)} label="операций" />
                   <Tile value={String(result?.event_count ?? 0)} label="событий" />
                   <Tile value={String(result?.needs_attention_count ?? 0)} label="уточнить" tone="brass" />
                 </div>
