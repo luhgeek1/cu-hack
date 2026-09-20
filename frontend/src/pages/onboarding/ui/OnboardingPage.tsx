@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { financeApi, useFinance } from "@/entities/finance";
-import type { ImportResultDto } from "@/entities/finance/api/dto";
+import type { DashboardDto, ImportResultDto } from "@/entities/finance/api/dto";
 import { markOnboarded } from "@/features/onboarding/model/storage";
 import { OnboardingArtwork } from "@/features/auth/ui/OnboardingArtwork";
 import { ProcessingSteps } from "@/features/onboarding/ui/ProcessingSteps";
@@ -39,6 +39,7 @@ export default function OnboardingPage() {
   const queryClient = useQueryClient();
   const { today, summary } = useFinance();
   const [result, setResult] = useState<ImportResultDto | null>(null);
+  const [finalDashboard, setFinalDashboard] = useState<DashboardDto | null>(null);
 
   /** Честно показываем, что маркетплейсы — импорт файлов, а не живая синхронизация */
   const integrations = useQuery({
@@ -111,6 +112,22 @@ export default function OnboardingPage() {
     markOnboarded(auth?.user?.email as string | undefined);
     navigate("/", { replace: true });
   }, [auth?.user?.email, navigate]);
+
+  const showImportedResult = useCallback(async () => {
+    try {
+      const dashboard = await queryClient.fetchQuery({
+        queryKey: ["finance", "dashboard", "month"],
+        queryFn: () => financeApi.getDashboard("month", today),
+      });
+      setFinalDashboard(dashboard);
+    } catch {
+      toast.error("Не удалось обновить итог после импорта");
+    }
+    setStep("done");
+  }, [queryClient, today]);
+
+  const bankSpent = finalDashboard ? finalDashboard.summary.bank_outflow_minor / 100 : summary.bankSpent;
+  const realExpense = finalDashboard ? finalDashboard.summary.real_expense_minor / 100 : summary.realExpense;
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-ink">
@@ -337,7 +354,7 @@ export default function OnboardingPage() {
                       "Считаем реальные траты",
                       "Отмечаем, что нужно уточнить",
                     ]}
-                    onDone={() => setStep("done")}
+                    onDone={() => void showImportedResult()}
                   />
                 </div>
               </>
@@ -355,17 +372,17 @@ export default function OnboardingPage() {
                 <div data-art-occluder className="mt-6 rounded-3xl border border-line bg-surface p-5">
                   <div className="flex items-baseline justify-between">
                     <span className="text-[13px] text-fg-muted">Банк списал</span>
-                    <span className="tnum text-[15px] text-fg-muted">{money(summary.bankSpent)}</span>
+                    <span className="tnum text-[15px] text-fg-muted">{money(bankSpent)}</span>
                   </div>
                   <div className="mt-3 flex items-baseline justify-between">
                     <span className="text-[13px] text-fg">Ваши траты</span>
-                    <span className="tnum text-[22px] font-bold">{money(summary.realExpense)}</span>
+                    <span className="tnum text-[22px] font-bold">{money(realExpense)}</span>
                   </div>
                   <div className="mt-3 h-3 overflow-hidden rounded-full bg-raised">
                     <motion.div
                       className="h-full origin-left rounded-full bg-sage"
                       style={{
-                        width: `${summary.bankSpent > 0 ? (summary.realExpense / summary.bankSpent) * 100 : 0}%`,
+                        width: `${bankSpent > 0 ? (realExpense / bankSpent) * 100 : 0}%`,
                       }}
                       initial={{ scaleX: 0 }}
                       animate={{ scaleX: 1 }}

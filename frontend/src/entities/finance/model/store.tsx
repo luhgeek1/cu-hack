@@ -249,7 +249,9 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       events: (dashboard.data?.recent_events ?? []).map(mapEvent),
       accounts,
       totalBalance: (dashboard.data?.total_balance_minor ?? 0) / 100,
-      lastSyncedAt: dashboard.data?.last_synced_at ?? null,
+      lastSyncedAt: dashboard.dataUpdatedAt
+        ? new Date(dashboard.dataUpdatedAt).toISOString()
+        : new Date().toISOString(),
       needsAttention,
       outstandingDebt: (digest.data?.outstanding_debt_minor ?? 0) / 100,
       cashPolicy: dashboard.data?.cash_policy ?? "expense_on_withdrawal",
@@ -270,6 +272,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     setPeriod,
     shiftPeriod,
     dashboard.data,
+    dashboard.dataUpdatedAt,
     dashboard.isLoading,
     dashboard.isFetching,
     dashboard.error,

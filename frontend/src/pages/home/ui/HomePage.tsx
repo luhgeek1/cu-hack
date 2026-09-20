@@ -11,7 +11,6 @@ import { ReconcileStrip } from "@/features/reconcile/ui/ReconcileStrip";
 import { SpendDonut } from "@/features/reconcile/ui/SpendDonut";
 import { TotalBalanceCard } from "@/features/finance/ui/TotalBalanceCard";
 import { RealSpendingCard } from "@/features/finance/ui/RealSpendingCard";
-import { PalataLogo } from "@/shared/ui/PalataLogo";
 import { money, time } from "@/shared/lib/format";
 import { Segmented } from "@/shared/ui/Segmented";
 import { cn } from "@/shared/lib/utils";
@@ -48,9 +47,7 @@ export default function HomePage() {
   return (
     <>
       <header className="flex items-center justify-between px-5 md:px-0 pb-4 pt-5 safe-top">
-        <div className="flex items-center gap-2">
-          <PalataLogo variant="badge" size="sm" />
-        </div>
+        <h1 className="text-[22px] md:text-[26px] font-bold -tracking-[0.02em]">Главная</h1>
         <span className="flex items-center gap-1.5 text-[12px] text-fg-faint">
           <span
             className={cn(
@@ -58,7 +55,7 @@ export default function HomePage() {
               isSyncing ? "animate-pulse bg-brass" : "bg-sage-strong"
             )}
           />
-          {isSyncing ? "синхронизация" : lastSyncedAt ? `обновлено в ${time(lastSyncedAt)}` : "нет данных"}
+          {isSyncing ? "синхронизация" : `обновлено в ${time(lastSyncedAt || new Date())}`}
         </span>
       </header>
 
@@ -71,7 +68,7 @@ export default function HomePage() {
           </div>
 
           {/* Две карточки со скриншота: 1 колонка на мобильном, 2 колонки на десктопе */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 items-start gap-3.5">
             <TotalBalanceCard accounts={accounts} totalBalance={totalBalance} />
             <RealSpendingCard
               bankOutflow={summary.bankSpent}
