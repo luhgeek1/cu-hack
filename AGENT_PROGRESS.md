@@ -358,3 +358,53 @@ Files changed:
 Verification:
 - `npm run build` succeeds cleanly with 0 TypeScript/bundling errors.
 - Container `nginx` rebuilt and tested via `curl http://localhost` (HTTP 200).
+
+
+## [DONE] Silver orbit artwork for registration
+Agent: Codex
+Completed: 2026-09-20
+Implemented:
+- Original silver 3D annulus, reflective floating core, fine orbit and satellite on the registration form.
+- Local procedural studio reflections, gentle motion and mouse parallax; dynamic loading of the existing Three.js dependency.
+- Responsive sizing, static CSS fallback without WebGL, reduced-motion support, pause when hidden/offscreen, GPU cleanup on unmount.
+Files changed: frontend/src/features/auth/ui/{SilverOrbit.tsx,silver-orbit-scene.ts,silver-orbit.css}, frontend/src/pages/auth/ui/AuthPage.tsx.
+API/contracts: unchanged.
+Validation:
+- npm run build passes (bundle-size warnings).
+- Chrome/Playwright: mobile 390x844, compact 320x568, desktop 1440x1000; no horizontal overflow or browser exceptions; animation changes frames, reduced motion remains static; login switch removes canvas and registration remounts; fields enable submit; WebGL-disabled fallback works.
+- Global TypeScript check reports existing errors in frontend/src/pages/Home.tsx:93,98; no errors reported in changed files.
+- Existing ESLint configuration ignores TypeScript files, so lint does not validate these files.
+
+## [IN PROGRESS] Silver coin refinement
+Agent: Codex
+Started: 2026-09-20
+Goal: Replace annulus/core with a silver coin and embossed ruble, preserve orbit, remove caption, enlarge composition.
+Files: frontend/src/features/auth/ui/{SilverOrbit.tsx,silver-orbit-scene.ts,silver-orbit.css}.
+API/contracts: unchanged.
+
+## [DONE] Silver coin refinement
+Agent: Codex
+Completed: 2026-09-20
+Implemented: solid silver coin with beveled ruble relief on both sides, raised rims and instanced edge reeds; retained animated orbit; removed caption; enlarged framing approximately 15%; static fallback now shows a coin.
+Files: frontend/src/features/auth/ui/{SilverOrbit.tsx,silver-orbit-scene.ts,silver-orbit.css}.
+Validation: production build passed; Chrome screenshots reviewed at 390x844 and 320x568; desktop checked; no browser exceptions or horizontal overflow; animated frames, reduced-motion still frame, form availability and canvas cleanup verified.
+API/contracts: unchanged.
+
+## [IN PROGRESS] Shared onboarding coin background
+Agent: Codex
+Started: 2026-09-20
+Goal: Keep coin on intro, auth and every onboarding step; soften/dim when content overlaps it.
+Files: auth artwork components/styles, AuthPage.tsx, OnboardingPage.tsx.
+API/contracts: unchanged.
+
+## [DONE] Shared onboarding coin background
+Agent: Codex
+Completed: 2026-09-20
+Implemented:
+- Persistent artwork on intro/login/registration and upload/reading/services/parsing/done.
+- Resize/content overlap detection fades and blurs the coin behind text/cards; clear artwork in free space, reduced-motion support, no intercepted pointer events.
+- One canvas survives onboarding step transitions; narrow-screen overflow clipped.
+Files: frontend/src/features/auth/ui/OnboardingArtwork.tsx, silver-orbit.css, pages/auth/ui/AuthPage.tsx, pages/onboarding/ui/OnboardingPage.tsx.
+Validation: all eight screens visited with Playwright and mocked auth; clear auth form and blurred content screens confirmed; canvas identity preserved across onboarding steps; 320px viewport has no horizontal overflow; no browser exceptions. Final build passed in /tmp/onboarding-art-check (HEAD snapshot plus artwork changes).
+Integration note: concurrent edits removed finance analytics/dataset and their exports during final verification, temporarily breaking the shared workspace build. Those unrelated edits were preserved. Isolated verification uses the existing HEAD finance module.
+API/contracts: unchanged.

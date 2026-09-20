@@ -1,0 +1,68 @@
+.silver-orbit {
+  position: relative;
+  isolation: isolate;
+  flex: 1 0 220px;
+  min-height: 220px;
+  max-height: 440px;
+  width: 100%;
+  margin: auto 0;
+}
+.silver-orbit__scene { position: absolute; inset: 0; }
+.silver-orbit__scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 700ms ease; }
+.silver-orbit__scene[data-ready] canvas { opacity: 1; }
+.silver-orbit__halo {
+  position: absolute;
+  inset: 12% -5% 4%;
+  background: radial-gradient(ellipse, rgb(139 146 153 / 10%), transparent 65%);
+  z-index: -1;
+}
+.silver-orbit__shadow {
+  position: absolute;
+  bottom: 12%;
+  left: 25%;
+  width: 50%;
+  height: 6%;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 65%);
+  filter: blur(12px);
+  z-index: -1;
+}
+.silver-orbit__fallback {
+  position: absolute;
+  left: 50%; top: 48%;
+  width: 180px; height: 180px;
+  transform: translate(-50%, -50%) rotate(-28deg) scaleX(.8);
+  border: 8px solid #8b9299;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eef0f2, #8b9299 45%, #eef0f2 75%, #5b6169);
+  box-shadow: inset 5px 3px 5px #eef0f2, inset -7px -3px 9px #24282d, 5px 3px 0 #333840, -2px -2px 2px #eef0f2;
+  transition: opacity 400ms;
+}
+.silver-orbit__fallback span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 100px; font-weight: 600; color: #5b6169; text-shadow: 1px 2px 1px #eef0f2; }
+.silver-orbit__scene[data-ready] .silver-orbit__fallback { opacity: 0; }
+@media (max-height: 700px) {
+  .silver-orbit { flex-basis: 180px; min-height: 180px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .silver-orbit__scene canvas, .silver-orbit__fallback { transition: none; }
+}
+
+/* The artwork sits behind content and never intercepts taps or file drops. */
+.onboarding-artwork {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  top: min(43dvh, 420px);
+  left: 0;
+  width: 100%;
+  height: clamp(220px, 46dvh, 440px);
+  transform: translateY(-50%);
+  opacity: 1;
+  filter: blur(0);
+  transition: filter 650ms ease, opacity 650ms ease;
+}
+.onboarding-artwork > .silver-orbit { height: 100%; min-height: 0; max-height: none; margin: 0; }
+.onboarding-artwork[data-obscured="true"] { filter: blur(8px); opacity: .22; }
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-artwork { transition: none; }
+}

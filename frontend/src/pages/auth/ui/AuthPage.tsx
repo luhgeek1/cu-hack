@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers/auth/useAuth";
 import type { AuthCredentials } from "@/entities/auth/model";
 import { demoSummary } from "@/entities/finance";
 import { money } from "@/shared/lib/format";
+import { OnboardingArtwork } from "@/features/auth/ui/OnboardingArtwork";
 
 type Mode = "login" | "register";
 type Stage = "intro" | "form";
@@ -70,8 +71,9 @@ export default function AuthPage(): ReactElement {
   };
 
   return (
-    <div className="min-h-dvh bg-ink">
-      <div className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-6 pb-10 safe-top">
+    <div className="min-h-dvh overflow-x-clip bg-ink">
+      <div className="relative isolate mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-6 pb-10 safe-top">
+        <OnboardingArtwork />
         {stage === "form" ? (
           <button
             type="button"
@@ -178,7 +180,9 @@ export default function AuthPage(): ReactElement {
                 {mode === "login" ? "Войдите, чтобы открыть свой месяц" : "Дальше загрузим выписку"}
               </p>
 
-              <form onSubmit={submit} className="mt-auto space-y-2.5 pt-10">
+              {mode === "register" ? <div className="silver-orbit" aria-hidden="true" /> : null}
+
+              <form onSubmit={submit} className={`mt-auto space-y-2.5 ${mode === "register" ? "pt-5" : "pt-10"}`}>
                 <input
                   type="email"
                   required
