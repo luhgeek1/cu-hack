@@ -81,7 +81,7 @@ export default function AccountsPage() {
               <span className="shrink-0 text-right">
                 <span className="tnum block text-[14.5px] font-semibold">{money(account.balance)}</span>
                 <span className="mt-0.5 block text-[11.5px] text-fg-faint">
-                  {isSyncing ? "синхронизация…" : `в ${time(account.lastSyncAt)}`}
+                  {isSyncing ? "обновляем…" : `в ${time(account.lastSyncAt)}`}
                 </span>
               </span>
             </li>

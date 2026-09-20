@@ -137,7 +137,11 @@
   }
 
   .safe-top {
-    padding-top: max(env(safe-area-inset-top), 0.5rem);
+    padding-top: max(env(safe-area-inset-top), 1.25rem);
+  }
+
+  .safe-top-lg {
+    padding-top: max(env(safe-area-inset-top), 2rem);
   }
 
   .no-scrollbar::-webkit-scrollbar {
