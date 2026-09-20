@@ -19,7 +19,7 @@ const RequireAuth = () => {
     throw new Error("Auth context is unavailable. Wrap routes with <AuthProvider>.");
   }
 
-  if (!auth.user && !import.meta.env.VITE_PREVIEW) {
+  if (!auth.user) {
     return <Navigate to="/auth" replace state={{ from: location }} />;
   }
 
