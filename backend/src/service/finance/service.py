@@ -72,6 +72,10 @@ class FinanceService:
             events = reconstruct([AccountData.model_validate(a) for a in accounts], await self.transactions())
         except ValueError as exc:
             raise UnprocessableEntityError(str(exc)) from exc
+        from service.finance.marketplaces import MarketplaceService, enrich_events
+        orders = await MarketplaceService(self).rows()
+        enrich_events(events, [{**r.payload, "id": str(r.id), "marketplace": r.marketplace,
+                               "transaction_id": str(r.transaction_id)} for r in orders if r.transaction_id])
         own_events = select(FinanceEvent.id).where(FinanceEvent.user_id == self.user_id)
         await self.session.execute(delete(FinanceEventLink).where(FinanceEventLink.event_id.in_(own_events)))
         await self.session.execute(delete(FinanceEvent).where(FinanceEvent.user_id == self.user_id))

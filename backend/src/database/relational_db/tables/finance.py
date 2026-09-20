@@ -59,3 +59,14 @@ class FinanceEventLink(Base):
     role: Mapped[str] = mapped_column(String(40))
     expense_minor: Mapped[int] = mapped_column(BigInteger)
     income_minor: Mapped[int] = mapped_column(BigInteger)
+
+
+class MarketplaceOrder(Base):
+    __tablename__ = "marketplace_orders"
+    __table_args__ = (UniqueConstraint("user_id", "marketplace", "external_id", name="uq_marketplace_order_source"),)
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    marketplace: Mapped[str] = mapped_column(String(30))
+    external_id: Mapped[str] = mapped_column(String(128))
+    payload: Mapped[dict] = mapped_column(JSON)
+    transaction_id: Mapped[UUID | None] = mapped_column(ForeignKey("finance_transactions.id", ondelete="SET NULL"), nullable=True, unique=True)

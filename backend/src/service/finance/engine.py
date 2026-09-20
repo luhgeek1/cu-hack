@@ -20,12 +20,12 @@ def category_for(t: TransactionData) -> str:
         return t.category
     text = normalized(f"{t.merchant or ''} {t.description}")
     rules = {
-        "groceries": ("продукт", "пятероч", "перекрест", "вкусвилл", "grocer"),
-        "restaurants": ("ресторан", "кафе", "ужин", "обед", "рестик", "restaurant"),
-        "transport": ("такси", "метро", "транспорт", "taxi"),
+        "groceries": ("продукт", "пятероч", "перекрест", "вкусвилл", "grocer", "pyaterochka", "magnit", "магнит", "perekrestok", "perekryostok", "tabris"),
+        "restaurants": ("ресторан", "кафе", "ужин", "обед", "рестик", "restaurant", "rostics", "coffee", "дринкит", "додо", "burger king", "vkusnoitochka", "vending"),
+        "transport": ("такси", "метро", "транспорт", "taxi", "urent", "metro", "mos.transport", "ebk_proezd", "yandex*4121", "scooters", "автодор"),
         "electronics": ("техник", "электроник", "electronics"),
         "household": ("хозтовар", "для дома", "household"),
-        "subscriptions": ("подписк", "яндекс плюс", "subscription"),
+        "subscriptions": ("подписк", "яндекс плюс", "subscription", "oto*telegram", "yandex*5815*plus"),
         "health": ("аптек", "клиник"),
         "shopping": ("одежд", "магазин", "shop"),
     }

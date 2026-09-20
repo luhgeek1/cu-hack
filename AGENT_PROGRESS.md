@@ -163,3 +163,11 @@ Verification:
 - Docker is unavailable and local PostgreSQL/Redis/MinIO ports are closed, so live PostgreSQL migrations and the existing external-service integration suite were not run here.
 
 Next task: frontend integration against docs/BACKEND_API.md; deploy existing compose and run demo steps.
+
+## [DONE] T-Bank statements and marketplace purchase imports
+Agent: OpenCode, 2026-09-20
+Scope: bank PDF/text parser, reported-total reconciliation, statement metadata; buyer order imports for ozon/wildberries/yandex_market and transaction enrichment without duplicate spending.
+Files: finance schemas/services/routes/tests, new marketplace table/migration, dependency lock and API docs.
+Decisions: supplied private statement is not a repository fixture; synthetic fixtures only. Preserve operation and posting dates and card-currency amount. Internal contract transfers are ambiguous without ownership evidence. Generic Y.M/YandexBank descriptors do not establish Yandex Market purchases. Public seller APIs do not imply buyer-history access; report import support honestly, not simulated live connection.
+Implemented: PDF/text preview/import with strict footer reconciliation, ordinal duplicate preservation, merchant aliases; marketplace buyer-order JSON import, candidate links, owner-scoped persistent linkage, item category enrichment without added expenses. Migration d42f20260920, pypdf dependency.
+Verification: 43 unit/API tests pass, including statement-to-order-to-analytics and reimport. Original binary PDF unavailable; parser tested using synthetic representations of supplied text/layout. Live marketplace sync is not available (seller APIs are not consumer purchase-history APIs).

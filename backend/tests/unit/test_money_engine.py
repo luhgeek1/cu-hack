@@ -173,3 +173,9 @@ def test_demo_financial_totals_are_known_not_only_self_consistent():
     assert summary.real_expense_minor == 2059800
     assert summary.real_income_minor == 9500000
     assert summary.needs_attention_count == 1
+
+
+@pytest.mark.parametrize("merchant,expected", [("PYATEROCHKA MOSCOW", "groceries"), ("MAGNIT MM", "groceries"),
+    ("Rostics Moskva RUS", "restaurants"), ("urent G. MOSKVA", "transport"), ("OTO*Telegram", "subscriptions")])
+def test_statement_merchant_categories(merchant, expected):
+    assert reconstruct(ACCOUNTS, [tx("merchant", -10000, merchant=merchant)])[0].category == expected

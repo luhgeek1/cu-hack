@@ -16,6 +16,11 @@ from domain.finance.schemas import (
 from service.finance.analytics import period_bounds
 from service.finance.importer import parse_csv
 from service.finance.service import FinanceService
+from domain.finance.statements import StatementPreview, StatementResult
+from service.finance.statements import parse_tbank_pdf, parse_tbank_text
+from starlette.concurrency import run_in_threadpool
+from domain.finance.marketplaces import IntegrationView, Marketplace, OrderImport, OrderImportResult, OrderLink, OrderView
+from service.finance.marketplaces import MarketplaceService
 
 router = APIRouter(tags=["Honest Month"])
 
@@ -32,6 +37,26 @@ async def get_finance_service(user=Depends(current_finance_user)):
 
 
 Service = Annotated[FinanceService, Depends(get_finance_service, scope="function")]
+
+
+@router.get("/integrations", response_model=list[IntegrationView])
+async def integrations(svc: Service):
+    return await MarketplaceService(svc).integrations()
+
+
+@router.post("/integrations/{provider}/orders", response_model=OrderImportResult)
+async def import_orders(provider: Marketplace, payload: OrderImport, svc: Service):
+    return await MarketplaceService(svc).import_orders(provider, payload.orders)
+
+
+@router.get("/marketplace-orders", response_model=list[OrderView])
+async def marketplace_orders(svc: Service):
+    return await MarketplaceService(svc).list_orders()
+
+
+@router.post("/marketplace-orders/{order_id}/link", response_model=OrderView)
+async def link_order(order_id: UUID, payload: OrderLink, svc: Service):
+    return await MarketplaceService(svc).link(order_id, payload.transaction_id)
 
 
 def dates(
@@ -96,6 +121,36 @@ async def import_csv(account_id: UUID, file: UploadFile, svc: Service):
     if len(content) > 1024 * 1024:
         raise PayloadTooLargeError("CSV must be at most 1 MiB")
     return await svc.import_transactions(parse_csv(content, account_id))
+
+
+@router.post("/imports/tbank/preview", response_model=StatementPreview)
+async def preview_statement(account_id: UUID, file: UploadFile, svc: Service):
+    if account_id not in {a.id for a in await svc.accounts()}:
+        from core.errors import NotFoundError
+        raise NotFoundError("Account not found")
+    return await read_statement(file, account_id)
+
+
+async def read_statement(file, account_id):
+    content = await file.read(20 * 1024 * 1024 + 1)
+    if len(content) > 20 * 1024 * 1024:
+        raise PayloadTooLargeError("Statement must be at most 20 MiB")
+    if content.startswith(b"%PDF-"):
+        return await run_in_threadpool(parse_tbank_pdf, content, account_id)
+    if not (file.filename or "").lower().endswith(".txt"):
+        raise UnprocessableEntityError("Upload a PDF or extracted UTF-8 .txt statement")
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise UnprocessableEntityError("Text must be UTF-8") from exc
+    return await run_in_threadpool(parse_tbank_text, text, account_id)
+
+
+@router.post("/imports/tbank", response_model=StatementResult)
+async def import_statement(account_id: UUID, file: UploadFile, svc: Service):
+    statement = await read_statement(file, account_id)
+    result = await svc.import_transactions(statement.transactions)
+    return StatementResult(import_result=result, statement=statement)
 
 
 @router.get("/transactions", response_model=Page[TransactionData])

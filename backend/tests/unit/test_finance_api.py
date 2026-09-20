@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from api.v1.finance.router import router, get_finance_service, current_finance_user
 from core.config import get_settings
 from core.error_handling import register_exception_handlers
-from database.relational_db.tables.finance import FinanceAccount, FinanceTransaction, FinanceEvent, FinanceEventLink
+from database.relational_db.tables.finance import FinanceAccount, FinanceTransaction, FinanceEvent, FinanceEventLink, MarketplaceOrder
 from database.relational_db.tables.users.users_table import User
 from service.finance.service import FinanceService
 
@@ -19,7 +19,7 @@ from service.finance.service import FinanceService
 @pytest_asyncio.fixture
 async def finance_api():
     engine = create_async_engine("sqlite+aiosqlite://")
-    tables = [User.__table__, FinanceAccount.__table__, FinanceTransaction.__table__, FinanceEvent.__table__, FinanceEventLink.__table__]
+    tables = [User.__table__, FinanceAccount.__table__, FinanceTransaction.__table__, FinanceEvent.__table__, FinanceEventLink.__table__, MarketplaceOrder.__table__]
     async with engine.begin() as conn:
         for table in tables:
             # User's PostgreSQL trigram indices are unnecessary in this isolated test database.
@@ -165,3 +165,30 @@ async def test_dates_validation_and_pagination(finance_api):
     two = (await client.get("/api/v1/events?limit=2&offset=2")).json()
     assert len(one["items"]) == len(two["items"]) == 2
     assert {e["id"] for e in one["items"]}.isdisjoint(e["id"] for e in two["items"])
+
+
+@pytest.mark.asyncio
+async def test_statement_import_and_marketplace_link_do_not_duplicate_money(finance_api):
+    from tests.unit.test_statements import HEADER
+    client, _, _ = finance_api
+    account = (await client.post("/api/v1/accounts", json={"external_id": "statement", "bank": "tbank", "name": "Statement"})).json()
+    text = HEADER + "19.09.2026 12:00 19.09.2026 12:15 -300.00 ₽ -300.00 ₽ Оплата в OZON 1111\nПополнения: 0,00 ₽\nРасходы: 300,00 ₽"
+    response = await client.post(f"/api/v1/imports/tbank?account_id={account['id']}", files={"file": ("statement.txt", text.encode(), "text/plain")})
+    assert response.status_code == 200, response.text
+    assert response.json()["import_result"]["imported_count"] == 1
+    order = {"external_id": "order1", "purchased_at": "2026-09-19T12:00:00+03:00", "paid_minor": 30000,
+             "items": [{"name": "Milk", "quantity": 1, "total_minor": 10000, "category": "groceries"},
+                       {"name": "Cable", "quantity": 1, "total_minor": 20000, "category": "electronics"}]}
+    response = await client.post("/api/v1/integrations/ozon/orders", json={"orders": [order]})
+    assert response.status_code == 200, response.text
+    view = response.json()["orders"][0]
+    assert len(view["candidate_transaction_ids"]) == 1
+    linked = await client.post(f"/api/v1/marketplace-orders/{view['id']}/link", json={"transaction_id": view["candidate_transaction_ids"][0]})
+    assert linked.status_code == 200, linked.text
+    report = (await client.get("/api/v1/analytics?date=2026-09-01")).json()["summary"]
+    assert report["real_expense_minor"] == 30000
+    assert {c["category"]: c["expense_minor"] for c in report["categories"]} == {"groceries": 10000, "electronics": 20000}
+    repeat = await client.post(f"/api/v1/imports/tbank?account_id={account['id']}", files={"file": ("statement.txt", text.encode(), "text/plain")})
+    assert repeat.json()["import_result"]["duplicate_count"] == 1
+    assert (await client.get("/api/v1/transactions")).json()["total"] == 1
+    assert all(not i["live_sync_available"] for i in (await client.get("/api/v1/integrations")).json())

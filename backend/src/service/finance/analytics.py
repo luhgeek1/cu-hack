@@ -46,7 +46,11 @@ def summarize(events, start: date, end: date, timezone: str = "Europe/Moscow") -
             timeline[day].expense_minor += c.expense_minor
             timeline[day].income_minor += c.income_minor
             if c.expense_minor:
-                categories[c.category] += c.expense_minor
+                if c.category_allocations:
+                    for category, amount in c.category_allocations.items():
+                        categories[category] += amount
+                else:
+                    categories[c.category] += c.expense_minor
             if e.status == "needs_attention":
                 result.unresolved_inflow_minor += max(c.amount_minor, 0)
             excluded = outflow - c.expense_minor

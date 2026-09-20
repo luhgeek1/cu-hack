@@ -61,6 +61,11 @@ class TransactionInput(Contract):
     counterparty: str | None = Field(default=None, max_length=200)
     category: Category | None = None
     transfer_reference: str | None = Field(default=None, max_length=128)
+    posted_at: AwareDatetime | None = None
+    card_last4: str | None = Field(default=None, pattern=r"^\d{4}$")
+    original_amount_minor: Money | None = None
+    original_currency: str | None = Field(default=None, max_length=8)
+    source: Literal["manual", "tbank_statement"] = "manual"
 
     @model_validator(mode="after")
     def nonzero(self):
@@ -82,6 +87,7 @@ class Contribution(Contract):
     income_minor: Money = 0
     role: str
     category: Category = "other"
+    category_allocations: dict[Category, int] = Field(default_factory=dict)
 
 
 class FundingLink(Contract):
@@ -107,6 +113,7 @@ class FinancialEvent(Contract):
     income_impact_minor: Money = 0
     bank_outflow_minor: Money = 0
     bank_inflow_minor: Money = 0
+    marketplace_orders: list[dict] = Field(default_factory=list)
 
 
 class GraphNode(Contract):
