@@ -337,3 +337,18 @@ Verification:
 - `npm run build` succeeds cleanly with 0 TypeScript/bundling errors.
 - Container `nginx` rebuilt and tested via `curl http://localhost` (HTTP 200).
 
+
+## [DONE] Silver orbit artwork for registration
+Agent: Codex
+Completed: 2026-09-20
+Implemented:
+- Original silver 3D annulus, reflective floating core, fine orbit and satellite on the registration form.
+- Local procedural studio reflections, gentle motion and mouse parallax; dynamic loading of the existing Three.js dependency.
+- Responsive sizing, static CSS fallback without WebGL, reduced-motion support, pause when hidden/offscreen, GPU cleanup on unmount.
+Files changed: frontend/src/features/auth/ui/{SilverOrbit.tsx,silver-orbit-scene.ts,silver-orbit.css}, frontend/src/pages/auth/ui/AuthPage.tsx.
+API/contracts: unchanged.
+Validation:
+- npm run build passes (bundle-size warnings).
+- Chrome/Playwright: mobile 390x844, compact 320x568, desktop 1440x1000; no horizontal overflow or browser exceptions; animation changes frames, reduced motion remains static; login switch removes canvas and registration remounts; fields enable submit; WebGL-disabled fallback works.
+- Global TypeScript check reports existing errors in frontend/src/pages/Home.tsx:93,98; no errors reported in changed files.
+- Existing ESLint configuration ignores TypeScript files, so lint does not validate these files.
