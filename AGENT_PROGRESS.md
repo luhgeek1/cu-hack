@@ -163,3 +163,33 @@ Verification:
 - Docker is unavailable and local PostgreSQL/Redis/MinIO ports are closed, so live PostgreSQL migrations and the existing external-service integration suite were not run here.
 
 Next task: frontend integration against docs/BACKEND_API.md; deploy existing compose and run demo steps.
+
+---
+
+## [DONE] Frontend Honest Month Integration & Visual Analytics
+
+Agent: Antigravity
+Completed: 2026-09-20
+Implemented:
+- Period switching: tabs for Day, Week, Month, Year with dynamic date ranges and live query to `/api/v1/dashboard`.
+- Total Balance Card: total net balance across all accounts and horizontally scrollable connected bank accounts list (Т-Банк, Сбер, Альфа, Ozon).
+- RealSpendingCard with "Explain My Month" accordion: displays exact excluded breakdown (internal transfers, marketplace top-ups, friend reimbursements, refunds) explaining the difference between bank outflow and real spending.
+- Interactive Recharts visual analytics (`SpendingChart.tsx`):
+  - Donut / Pie chart with category percentage, colors, hover tooltips, and central total sum.
+  - Timeline Area chart displaying daily spending dynamics.
+- Needs Attention 1-tap resolution with instant live recalculation.
+- Interactive Money Graph for individual reconstructed financial events.
+Files changed:
+- `frontend/src/pages/Home.tsx`
+- `frontend/src/features/finance/ui/RealSpendingCard.tsx`
+- `frontend/src/features/finance/ui/SpendingChart.tsx`
+- `frontend/src/features/finance/ui/TotalBalanceCard.tsx`
+- `frontend/src/features/finance/ui/NeedsAttention.tsx`
+- `frontend/src/features/finance/ui/MoneyGraph.tsx`
+- `frontend/src/shared/lib/financeLabels.ts`
+- `frontend/src/shared/lib/formatters.ts`
+- `frontend/src/shared/api/finance.ts`
+Verification:
+- `npm run build` succeeds cleanly with 0 TypeScript/bundling errors.
+- Container `nginx` rebuilt and tested via `curl http://localhost` (HTTP 200).
+
