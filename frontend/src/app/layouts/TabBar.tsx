@@ -50,13 +50,15 @@ export const TabBar = () => {
                         : "border-line-strong bg-raised text-fg-muted"
                     )}
                   >
-                    {profile?.profilePicUrl ? (
-                      <img src={profile.profilePicUrl} alt="" className="size-full object-cover" />
-                    ) : initials ? (
-                      initials
-                    ) : (
-                      <User className="size-[15px]" strokeWidth={1.8} />
-                    )}
+                    {(() => {
+                      const localAvatar = typeof window !== "undefined" ? localStorage.getItem("user_avatar_preview") : null;
+                      const avatarUrl = profile?.profilePicUrl || localAvatar;
+                      if (avatarUrl) {
+                        return <img src={avatarUrl} alt="" className="size-full object-cover" />;
+                      }
+                      if (initials) return initials;
+                      return <User className="size-[15px]" strokeWidth={1.8} />;
+                    })()}
                   </span>
                   Профиль
                 </>

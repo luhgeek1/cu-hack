@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Camera, Check, ChevronRight, LogOut, Pencil, RotateCcw } from "lucide-react";
+import { Camera, Check, ChevronRight, ImagePlus, LogOut, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth/useAuth";
 import { eventsInPeriod, useFinance } from "@/entities/finance";
@@ -17,6 +17,14 @@ const STROKE = 3;
 const RADIUS = (RING - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
+const PRESET_AVATARS = [
+  { id: "leo", label: "Leo", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo" },
+  { id: "alex", label: "Alex", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" },
+  { id: "jordan", label: "Jordan", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jordan" },
+  { id: "sam", label: "Sam", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sam" },
+  { id: "bot", label: "Bot", url: "https://api.dicebear.com/7.x/bottts/svg?seed=Finance" },
+];
+
 export default function ProfilePage() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -27,11 +35,18 @@ export default function ProfilePage() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
   const [name, setName] = useState("");
+
+  const [localAvatar, setLocalAvatar] = useState<string | null>(() => {
+    return typeof window !== "undefined" ? localStorage.getItem("user_avatar_preview") : null;
+  });
 
   const email = profile?.email ?? auth?.user?.email ?? "";
   const displayName = profile?.username || email.split("@")[0] || "Профиль";
   const initials = displayName.slice(0, 1).toUpperCase();
+
+  const currentAvatar = profile?.profilePicUrl || localAvatar;
 
   const monthEvents = eventsInPeriod(events, "month", today);
   const askedCount = monthEvents.filter(
@@ -41,6 +56,37 @@ export default function ProfilePage() {
   const daysWithUs = profile?.createdAt
     ? Math.max(1, Math.round((Date.now() - new Date(profile.createdAt).getTime()) / 86_400_000))
     : 1;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Instant local preview
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setLocalAvatar(dataUrl);
+      localStorage.setItem("user_avatar_preview", dataUrl);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to backend/minio
+    upload(file);
+    setPhotoSheetOpen(false);
+    e.target.value = "";
+  };
+
+  const handleSelectPreset = (url: string) => {
+    setLocalAvatar(url);
+    localStorage.setItem("user_avatar_preview", url);
+    setPhotoSheetOpen(false);
+  };
+
+  const handleRemovePhoto = () => {
+    setLocalAvatar(null);
+    localStorage.removeItem("user_avatar_preview");
+    setPhotoSheetOpen(false);
+  };
 
   return (
     <>
@@ -85,28 +131,35 @@ export default function ProfilePage() {
 
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => setPhotoSheetOpen(true)}
             disabled={isUploading}
             aria-label="Сменить фото"
-            className="absolute left-1/2 top-1/2 size-[92px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full bg-raised"
+            className="absolute left-1/2 top-1/2 size-[92px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full bg-raised shadow-inner group transition-transform active:scale-95"
           >
-            {profile?.profilePicUrl ? (
-              <img src={profile.profilePicUrl} alt="" className="size-full object-cover" />
+            {currentAvatar ? (
+              <img src={currentAvatar} alt="" className="size-full object-cover" />
             ) : (
               <span className="flex size-full items-center justify-center text-[32px] font-semibold text-fg-muted">
                 {initials}
               </span>
             )}
+            <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera className="size-5 text-white" />
+            </span>
             {isUploading ? (
-              <span className="absolute inset-0 flex items-center justify-center bg-black/55">
+              <span className="absolute inset-0 flex items-center justify-center bg-black/60">
                 <Camera className="size-5 animate-pulse text-white" />
               </span>
             ) : null}
           </button>
 
-          <span className="pointer-events-none absolute bottom-1 right-1 flex size-7 items-center justify-center rounded-full border-2 border-ink bg-raised text-fg-muted">
-            <Camera className="size-3.5" />
-          </span>
+          <button
+            type="button"
+            onClick={() => setPhotoSheetOpen(true)}
+            className="absolute bottom-1 right-1 flex size-7 items-center justify-center rounded-full border-2 border-ink bg-surface text-fg hover:text-white shadow-md active:scale-95 transition-transform"
+          >
+            <Camera className="size-3.5 text-sage-strong" />
+          </button>
         </div>
 
         <input
@@ -114,11 +167,7 @@ export default function ProfilePage() {
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) upload(file);
-            event.target.value = "";
-          }}
+          onChange={handleFileChange}
         />
 
         <span className="mt-3.5 rounded-full border border-sage/25 bg-sage-dim px-3 py-1 text-[11.5px] font-medium text-sage-strong">
@@ -128,21 +177,33 @@ export default function ProfilePage() {
         <h1 className="mt-2.5 text-[21px] font-bold -tracking-[0.02em]">{displayName}</h1>
         <p className="mt-0.5 text-[13px] text-fg-faint">{email}</p>
 
-        <button
-          type="button"
-          onClick={() => {
-            setName(profile?.username ?? "");
-            setEditOpen(true);
-          }}
-          className="mt-3 flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-[13px] text-fg-muted transition-colors hover:text-fg"
-        >
-          <Pencil className="size-3.5" />
-          Изменить имя
-        </button>
+        {/* Buttons: Change photo & Edit name */}
+        <div className="mt-3.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPhotoSheetOpen(true)}
+            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-[12.5px] font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg shadow-sm active:scale-95"
+          >
+            <Camera className="size-3.5 text-sage-strong" />
+            Сменить фото
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setName(profile?.username ?? "");
+              setEditOpen(true);
+            }}
+            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-[12.5px] font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg shadow-sm active:scale-95"
+          >
+            <Pencil className="size-3.5" />
+            Имя
+          </button>
+        </div>
       </section>
 
       <section className="mt-6 px-5">
-        <div className="flex items-stretch rounded-3xl border border-line bg-surface py-4">
+        <div className="flex items-stretch rounded-3xl border border-line bg-surface py-4 shadow-sm">
           <Stat label="Шума убрано" value={money(summary.excluded)} />
           <span className="w-px bg-line" />
           <Stat label="Вопросов" value={String(askedCount)} tone={askedCount ? "brass" : "default"} />
@@ -153,7 +214,7 @@ export default function ProfilePage() {
 
       <section className="mt-5 px-5">
         <h2 className="px-1 pb-2 text-[13px] text-fg-faint">Настройки</h2>
-        <div className="overflow-hidden rounded-3xl border border-line bg-surface">
+        <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
           <div className="flex items-center justify-between gap-4 px-4 py-4">
             <span className="min-w-0">
               <span className="block text-[14.5px] font-medium">Наличные — это трата</span>
@@ -222,6 +283,56 @@ export default function ProfilePage() {
         Честный месяц · данные за сентябрь
       </p>
 
+      {/* Photo change bottom sheet */}
+      <BottomSheet open={photoSheetOpen} onClose={() => setPhotoSheetOpen(false)} title="Фото профиля">
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => {
+              fileRef.current?.click();
+            }}
+            className="flex w-full items-center gap-3 rounded-2xl border border-line bg-raised p-3.5 text-left transition-colors hover:border-sage/50"
+          >
+            <span className="flex size-10 items-center justify-center rounded-xl bg-sage-dim text-sage-strong">
+              <ImagePlus className="size-5" />
+            </span>
+            <div>
+              <p className="text-[14px] font-semibold text-fg">Загрузить своё фото</p>
+              <p className="text-[12px] text-fg-muted">Выбрать файл из галереи или с устройства</p>
+            </div>
+          </button>
+
+          <div>
+            <p className="text-[12px] font-medium text-fg-muted mb-2 px-1">Готовые стильные аватарки:</p>
+            <div className="grid grid-cols-5 gap-2">
+              {PRESET_AVATARS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSelectPreset(preset.url)}
+                  className="flex flex-col items-center gap-1 rounded-2xl border border-line bg-raised p-2 hover:border-sage/50 transition-all active:scale-95"
+                >
+                  <img src={preset.url} alt={preset.label} className="size-10 rounded-full object-cover" />
+                  <span className="text-[10px] text-fg-muted truncate">{preset.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {currentAvatar ? (
+            <button
+              type="button"
+              onClick={handleRemovePhoto}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 py-3 text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/15"
+            >
+              <Trash2 className="size-4" />
+              Удалить фото
+            </button>
+          ) : null}
+        </div>
+      </BottomSheet>
+
+      {/* Name edit bottom sheet */}
       <BottomSheet open={editOpen} onClose={() => setEditOpen(false)} title="Как вас зовут">
         <input
           value={name}

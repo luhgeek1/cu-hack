@@ -1,72 +1,94 @@
 import React from 'react';
-import { formatMoney } from '@/shared/lib/formatters';
-import { getBankName } from '@/shared/lib/financeLabels';
-
-export interface AccountItem {
-  id: string;
-  name: string;
-  bank: string;
-  account_type: 'card' | 'marketplace' | string;
-  balance_minor: number;
-  last_synced_at?: string | null;
-}
+import { useFinance, type Account } from '@/entities/finance';
+import { money } from '@/shared/lib/format';
 
 interface TotalBalanceCardProps {
+  totalBalance?: number;
   totalBalanceMinor?: number;
-  accounts?: AccountItem[];
+  accounts?: Account[] | any[];
+  className?: string;
 }
 
 export const TotalBalanceCard: React.FC<TotalBalanceCardProps> = ({
-  totalBalanceMinor = 0,
-  accounts = [],
+  totalBalance: propTotal,
+  totalBalanceMinor,
+  accounts: propAccounts,
+  className = '',
 }) => {
+  // Use finance store as fallback if inside FinanceProvider
+  let storeAccounts: Account[] = [];
+  try {
+    const fin = useFinance();
+    storeAccounts = fin.accounts;
+  } catch {
+    // outside provider fallback
+  }
+
+  const accounts = propAccounts ?? storeAccounts;
+  const calculatedTotal = accounts.reduce(
+    (sum: number, a: any) => sum + (typeof a.balance === 'number' ? a.balance : (a.balance_minor ? a.balance_minor / 100 : 0)),
+    0
+  );
+
+  const total =
+    propTotal !== undefined
+      ? propTotal
+      : totalBalanceMinor !== undefined
+      ? totalBalanceMinor / 100
+      : calculatedTotal;
+
   return (
-    <div className="bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-black border border-zinc-800 rounded-3xl p-5 mb-6 shadow-xl relative overflow-hidden">
-      {/* Glow background accent */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+    <div
+      className={`rounded-[26px] border border-line bg-gradient-to-br from-[#16181c] via-[#131518] to-[#0c0d0f] p-5 shadow-xl relative overflow-hidden ${className}`}
+    >
+      {/* Subtle emerald ambient glow in top right */}
+      <div className="absolute -top-12 -right-12 w-44 h-44 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative z-10">
-        <div className="flex justify-between items-center mb-1">
-          <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-fg-muted">
             Общий баланс счетов
-          </p>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 font-mono">
-            {accounts.length} {accounts.length === 1 ? 'счет' : 'счетов'}
+          </span>
+          <span className="rounded-full border border-line bg-raised/80 px-2.5 py-0.5 text-[11px] font-medium text-fg-muted">
+            {accounts.length} {accounts.length === 1 ? 'счет' : accounts.length < 5 ? 'счета' : 'счетов'}
           </span>
         </div>
 
-        <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">
-          {formatMoney(totalBalanceMinor)}
-        </h2>
+        <p className="tnum mt-2 text-[36px] font-black leading-none text-fg tracking-tight">
+          {money(total)}
+        </p>
 
-        {/* Connected accounts chips / list */}
+        <div className="my-4 h-px w-full bg-line" />
+
         {accounts.length > 0 && (
-          <div className="pt-3 border-t border-zinc-800/80">
-            <p className="text-[10px] font-semibold uppercase text-zinc-500 tracking-wider mb-2">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-fg-faint mb-2.5">
               Подключенные банки:
             </p>
+
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {accounts.map((acc) => {
-                const bankTitle = getBankName(acc.bank);
-                const isMarketplace = acc.account_type === 'marketplace' || acc.bank === 'ozon';
+              {accounts.map((acc: any) => {
+                const isOzon = acc.bank === 'ozon' || acc.name?.toLowerCase().includes('ozon');
+                const rawBal = typeof acc.balance === 'number' ? acc.balance : (acc.balance_minor ? acc.balance_minor / 100 : 0);
+                const bankName = acc.bankName || acc.name || acc.bank;
 
                 return (
                   <div
                     key={acc.id}
-                    className="flex-shrink-0 bg-zinc-800/60 border border-zinc-700/60 rounded-2xl p-2.5 min-w-[130px] flex flex-col justify-between"
+                    className="flex-shrink-0 min-w-[124px] rounded-2xl border border-line-strong bg-raised/90 p-3 flex flex-col justify-between shadow-sm"
                   >
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[11px] font-medium text-zinc-300 truncate">
-                        {bankTitle}
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <span className="truncate text-[12px] font-medium text-fg">
+                        {bankName}
                       </span>
-                      {isMarketplace && (
-                        <span className="text-[9px] px-1 py-0.2 rounded bg-blue-500/20 text-blue-400 font-bold">
+                      {isOzon && (
+                        <span className="rounded bg-blue-500/20 px-1 py-0.5 text-[9px] font-bold text-blue-400">
                           Ozon
                         </span>
                       )}
                     </div>
-                    <span className="text-xs font-bold text-white mt-1">
-                      {formatMoney(acc.balance_minor)}
+                    <span className="tnum text-[14px] font-bold text-fg">
+                      {money(rawBal)}
                     </span>
                   </div>
                 );

@@ -4,6 +4,7 @@ import { Check, Plus, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { useFinance } from "@/entities/finance";
 import { bankMeta } from "@/entities/finance/ui/meta";
+import { TotalBalanceCard } from "@/features/finance/ui/TotalBalanceCard";
 import { money, time } from "@/shared/lib/format";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
 import { cn } from "@/shared/lib/utils";
@@ -37,23 +38,7 @@ export default function AccountsPage() {
       </header>
 
       <section className="px-5">
-        <div className="rounded-3xl border border-line bg-surface p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-[12.5px] text-fg-muted">Общий баланс</span>
-            {isSyncing ? (
-              <span className="flex items-center gap-1.5 rounded-full border border-line bg-raised px-2.5 py-1 text-[11.5px] font-medium text-fg-muted">
-                <RefreshCw className="size-3.5 animate-spin" />
-                читаем выписки
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 rounded-full border border-sage/30 bg-sage-dim px-2.5 py-1 text-[11.5px] font-medium text-sage-strong">
-                <ShieldCheck className="size-3.5" />
-                {accounts.length} банка онлайн
-              </span>
-            )}
-          </div>
-          <p className="tnum mt-1 text-[32px] font-bold leading-tight">{money(total)}</p>
-        </div>
+        <TotalBalanceCard accounts={accounts} totalBalance={total} />
       </section>
 
       <ul className="mt-2.5 space-y-2 px-5">

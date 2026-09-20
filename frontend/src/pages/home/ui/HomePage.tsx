@@ -11,6 +11,8 @@ import { EventSheet } from "@/features/events/ui/EventSheet";
 import { ExplainSheet } from "@/features/reconcile/ui/ExplainSheet";
 import { ReconcileStrip } from "@/features/reconcile/ui/ReconcileStrip";
 import { SpendDonut } from "@/features/reconcile/ui/SpendDonut";
+import { TotalBalanceCard } from "@/features/finance/ui/TotalBalanceCard";
+import { RealSpendingCard } from "@/features/finance/ui/RealSpendingCard";
 import { money, time } from "@/shared/lib/format";
 import { Segmented } from "@/shared/ui/Segmented";
 import { cn } from "@/shared/lib/utils";
@@ -50,9 +52,19 @@ export default function HomePage() {
         </span>
       </header>
 
-      <div className="space-y-2.5 px-5">
+      <div className="space-y-3 px-5">
         <Segmented layoutId="home-period" value={period} onChange={setPeriod} options={PERIODS} />
         <BankFilter />
+
+        {/* Две карточки из скрина */}
+        <TotalBalanceCard accounts={accounts} totalBalance={totalBalance} />
+        <RealSpendingCard
+          bankOutflow={summary.bankSpent}
+          realExpense={summary.realExpense}
+          excluded={summary.excluded}
+          excludedBreakdown={summary.excludedBreakdown}
+        />
+
         <SpendDonut summary={summary} />
         <ReconcileStrip summary={summary} onExplain={() => setExplainOpen(true)} />
       </div>
@@ -67,37 +79,7 @@ export default function HomePage() {
         <Tile label="Вам должны" value={money(owed)} tone={owed > 0 ? "brass" : "muted"} />
       </div>
 
-      <section className="mt-2.5 px-5">
-        <div className="rounded-3xl border border-line bg-surface p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[12.5px] text-fg-muted">На счетах</p>
-              <p className="tnum mt-0.5 text-[20px] font-bold leading-tight">{money(totalBalance)}</p>
-            </div>
-            <Link to="/accounts" className="flex items-center gap-0.5 pt-0.5 text-[13px] text-fg-muted">
-              Все счета
-              <ChevronRight className="size-3.5" />
-            </Link>
-          </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {accounts.map((account) => (
-              <div key={account.id} className="rounded-2xl bg-raised px-3 py-2.5">
-                <span className="flex items-center gap-1.5">
-                  <span
-                    className="size-1.5 rounded-full"
-                    style={{ backgroundColor: bankMeta[account.bank]?.color }}
-                  />
-                  <span className="truncate text-[12px] text-fg-muted">{account.bankName}</span>
-                </span>
-                <span className="tnum mt-1 block text-[13.5px] font-semibold">
-                  {money(account.balance)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       <section className="mt-5">
         <div className="mb-1 flex items-center justify-between px-5">

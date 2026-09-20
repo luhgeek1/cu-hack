@@ -1,123 +1,159 @@
 import React, { useState } from 'react';
-import { formatMoney } from '@/shared/lib/formatters';
-import { getExclusionInfo } from '@/shared/lib/financeLabels';
+import { useFinance, type PeriodSummary } from '@/entities/finance';
+import { money } from '@/shared/lib/format';
 
 interface BreakdownItem {
   type: string;
-  amount_minor: number;
-  event_ids?: string[];
+  label?: string;
+  amount?: number;
+  amount_minor?: number;
+  desc?: string;
 }
 
 interface RealSpendingCardProps {
-  bankOutflowMinor: number;
-  realExpenseMinor: number;
+  bankOutflow?: number;
+  bankOutflowMinor?: number;
+  realExpense?: number;
+  realExpenseMinor?: number;
   excludedBreakdown?: BreakdownItem[];
+  excluded?: number;
   excludedMinor?: number;
+  className?: string;
 }
 
 export const RealSpendingCard: React.FC<RealSpendingCardProps> = ({
+  bankOutflow: propBankOutflow,
   bankOutflowMinor,
+  realExpense: propRealExpense,
   realExpenseMinor,
-  excludedBreakdown = [],
+  excludedBreakdown: propBreakdown,
+  excluded: propExcluded,
   excludedMinor,
+  className = '',
 }) => {
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const diff = excludedMinor ?? (bankOutflowMinor - realExpenseMinor);
+
+  // Read from finance store if available
+  let storeSummary: PeriodSummary | null = null;
+  try {
+    const fin = useFinance();
+    storeSummary = fin.summary;
+  } catch {
+    // outside provider fallback
+  }
+
+  const bankSpent =
+    propBankOutflow !== undefined
+      ? propBankOutflow
+      : bankOutflowMinor !== undefined
+      ? bankOutflowMinor / 100
+      : storeSummary?.bankSpent ?? 0;
+
+  const realExp =
+    propRealExpense !== undefined
+      ? propRealExpense
+      : realExpenseMinor !== undefined
+      ? realExpenseMinor / 100
+      : storeSummary?.realExpense ?? 0;
+
+  const excluded =
+    propExcluded !== undefined
+      ? propExcluded
+      : excludedMinor !== undefined
+      ? excludedMinor / 100
+      : storeSummary?.excluded ?? (bankSpent - realExp);
+
+  const breakdown: BreakdownItem[] =
+    propBreakdown ??
+    (storeSummary?.excludedBreakdown?.map((b) => ({
+      type: b.type,
+      label: b.label,
+      amount: b.amount,
+    })) ?? []);
 
   return (
-    <div className="bg-gradient-to-br from-emerald-950/50 via-zinc-900 to-black border border-emerald-500/20 rounded-3xl p-6 mb-6 relative overflow-hidden shadow-xl shadow-emerald-950/20">
-      <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+    <div
+      className={`rounded-[26px] border border-emerald-500/20 bg-gradient-to-br from-[#0e1e18]/70 via-[#131718] to-[#0b0c0e] p-5 shadow-xl relative overflow-hidden ${className}`}
+    >
+      {/* Background ambient lighting */}
+      <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Header comparison */}
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider mb-1">
+      <div className="relative z-10">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-fg-muted">
             Банки насчитали списаний
-          </p>
-          <span className="text-2xl font-bold text-zinc-500 line-through decoration-zinc-600/80">
-            {formatMoney(Math.abs(bankOutflowMinor))}
           </span>
-        </div>
-
-        <div className="text-right">
-          <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-400">
             Честный расчет
           </span>
         </div>
-      </div>
 
-      <div className="h-px w-full bg-gradient-to-r from-emerald-500/30 via-emerald-500/10 to-transparent mb-4" />
+        <p className="tnum mt-1 text-[26px] font-bold text-fg-faint line-through decoration-fg-faint/70">
+          {money(bankSpent)}
+        </p>
 
-      <p className="text-emerald-400 text-xs font-medium uppercase tracking-wider mb-1">
-        Реальные расходы за период
-      </p>
-      <div className="flex items-baseline gap-2 mb-4">
-        <h1 className="text-4xl font-extrabold tracking-tight text-white">
-          {formatMoney(Math.abs(realExpenseMinor))}
-        </h1>
-      </div>
+        <div className="my-4 h-px w-full bg-gradient-to-r from-emerald-500/25 via-line to-transparent" />
 
-      {/* Difference badge / explanation toggle */}
-      {diff > 0 && (
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={() => setShowBreakdown(!showBreakdown)}
-            className="w-full flex items-center justify-between bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 rounded-2xl px-4 py-2.5 transition-all text-left group"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
-                ✓
-              </span>
-              <div>
-                <p className="text-xs font-semibold text-emerald-300">
-                  Сберегли {formatMoney(diff)} от искажения
-                </p>
-                <p className="text-[10px] text-zinc-400">
-                  {showBreakdown ? 'Нажмите, чтобы скрыть детали' : 'Нажмите, чтобы посмотреть что исключено'}
-                </p>
-              </div>
-            </div>
-            <span className="text-xs text-emerald-400 transition-transform duration-200 group-hover:translate-x-0.5">
-              {showBreakdown ? '▲' : '▼'}
-            </span>
-          </button>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-1">
+          Реальные расходы за период
+        </p>
+        <p className="tnum text-[38px] font-black leading-tight text-fg tracking-tight">
+          {money(realExp)}
+        </p>
 
-          {/* Breakdown Drawer / Accordion */}
-          {showBreakdown && (
-            <div className="mt-3 space-y-2 pt-2 border-t border-zinc-800/80">
-              <p className="text-[11px] font-medium text-zinc-400 px-1">
-                Почему эти деньги не посчитаны в расходы:
-              </p>
-              {excludedBreakdown.length === 0 ? (
-                <div className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-400">
-                  Переводы между своими счетами, возвраты и компенсации друзей.
+        {/* Excluded savings drawer / accordion */}
+        {excluded > 0 && (
+          <div className="mt-4 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowBreakdown(!showBreakdown)}
+              className="w-full flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/15 px-4 py-2.5 transition-all text-left group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-bold">
+                  ✓
+                </span>
+                <div>
+                  <p className="text-[12px] font-semibold text-emerald-300">
+                    Сберегли {money(excluded)} от искажения
+                  </p>
+                  <p className="text-[10px] text-fg-muted">
+                    {showBreakdown ? 'Нажмите, чтобы скрыть детали' : 'Нажмите, чтобы посмотреть что исключено'}
+                  </p>
                 </div>
-              ) : (
-                excludedBreakdown.map((item, idx) => {
-                  const info = getExclusionInfo(item.type);
-                  return (
+              </div>
+              <span className="text-xs text-emerald-400 transition-transform duration-200 group-hover:translate-x-0.5">
+                {showBreakdown ? '▲' : '▼'}
+              </span>
+            </button>
+
+            {showBreakdown && (
+              <div className="mt-3 space-y-2 pt-2 border-t border-line">
+                <p className="text-[11px] font-medium text-fg-muted px-1">
+                  Почему эти суммы не считаются расходом:
+                </p>
+                {breakdown.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-raised/80 border border-line text-xs text-fg-muted">
+                    Переводы себе, возвраты покупок и компенсации друзей.
+                  </div>
+                ) : (
+                  breakdown.map((item, idx) => (
                     <div
                       key={idx}
-                      className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl p-3 flex justify-between items-start gap-2"
+                      className="bg-raised/90 border border-line rounded-xl p-3 flex justify-between items-center gap-2"
                     >
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-white">{info.label}</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5 leading-relaxed">{info.desc}</p>
-                      </div>
-                      <div className="text-right whitespace-nowrap">
-                        <span className="text-xs font-bold text-emerald-400">
-                          −{formatMoney(item.amount_minor)}
-                        </span>
-                      </div>
+                      <span className="text-xs font-medium text-fg">{item.label || item.type}</span>
+                      <span className="tnum text-xs font-bold text-emerald-400">
+                        −{money(item.amount ?? (item.amount_minor ? item.amount_minor / 100 : 0))}
+                      </span>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
-      )}
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
