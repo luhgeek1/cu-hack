@@ -1,0 +1,62 @@
+.silver-orbit {
+  position: relative;
+  isolation: isolate;
+  flex: 1 0 220px;
+  min-height: 220px;
+  max-height: 440px;
+  width: 100%;
+  margin: auto 0;
+}
+.silver-orbit__scene { position: absolute; inset: 0 0 20px; }
+.silver-orbit__scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 700ms ease; }
+.silver-orbit__scene[data-ready] canvas { opacity: 1; }
+.silver-orbit__halo {
+  position: absolute;
+  inset: 12% -5% 4%;
+  background: radial-gradient(ellipse, rgb(139 146 153 / 10%), transparent 65%);
+  z-index: -1;
+}
+.silver-orbit__shadow {
+  position: absolute;
+  bottom: 12%;
+  left: 25%;
+  width: 50%;
+  height: 6%;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 65%);
+  filter: blur(12px);
+  z-index: -1;
+}
+.silver-orbit__signature {
+  position: absolute;
+  bottom: 4px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-fg-faint);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+.silver-orbit__signature i { width: 3px; height: 3px; border-radius: 50%; background: var(--color-fg-muted); }
+.silver-orbit__fallback {
+  position: absolute;
+  left: 50%; top: 48%;
+  width: 160px; height: 160px;
+  transform: translate(-50%, -50%) rotate(-28deg) scaleX(.8);
+  border: 24px solid #8b9299;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: inset 5px 3px 5px #eef0f2, inset -7px -3px 9px #24282d, 5px 3px 0 #333840, -2px -2px 2px #eef0f2;
+  transition: opacity 400ms;
+}
+.silver-orbit__fallback span { position: absolute; width: 48px; height: 48px; top: 32px; left: 32px; border-radius: 50%; background: radial-gradient(circle at 32% 24%, #eef0f2, #8b9299 38%, #24282d 70%, #8b9299); }
+.silver-orbit__scene[data-ready] .silver-orbit__fallback { opacity: 0; }
+@media (max-height: 700px) {
+  .silver-orbit { flex-basis: 180px; min-height: 180px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .silver-orbit__scene canvas, .silver-orbit__fallback { transition: none; }
+}

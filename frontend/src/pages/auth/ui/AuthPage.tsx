@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers/auth/useAuth";
 import type { AuthCredentials } from "@/entities/auth/model";
 import { demoSummary } from "@/entities/finance";
 import { money } from "@/shared/lib/format";
+import { SilverOrbit } from "@/features/auth/ui/SilverOrbit";
 
 type Mode = "login" | "register";
 type Stage = "intro" | "form";
@@ -178,7 +179,9 @@ export default function AuthPage(): ReactElement {
                 {mode === "login" ? "Войдите, чтобы открыть свой месяц" : "Дальше загрузим выписку"}
               </p>
 
-              <form onSubmit={submit} className="mt-auto space-y-2.5 pt-10">
+              {mode === "register" ? <SilverOrbit /> : null}
+
+              <form onSubmit={submit} className={`mt-auto space-y-2.5 ${mode === "register" ? "pt-5" : "pt-10"}`}>
                 <input
                   type="email"
                   required
