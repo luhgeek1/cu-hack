@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 
-import { bankMeta } from "@/entities/finance/ui/meta";
 import { useFinance, type FinancialEvent, type PeriodKey } from "@/entities/finance";
 import { AttentionCard } from "@/features/attention/ui/AttentionCard";
 import { BankFilter } from "@/features/accounts/ui/BankFilter";
@@ -29,7 +28,7 @@ export default function HomePage() {
   const [explainOpen, setExplainOpen] = useState(false);
   const [selected, setSelected] = useState<FinancialEvent | null>(null);
 
-  const recent = useMemo(() => visibleEvents.slice(0, 4), [visibleEvents]);
+  const recent = useMemo(() => visibleEvents.slice(0, 6), [visibleEvents]);
   const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
   const owed = useMemo(
     () => visibleEvents.reduce((sum, event) => sum + (event.debtOutstanding ?? 0), 0),
@@ -39,8 +38,10 @@ export default function HomePage() {
 
   return (
     <>
-      <header className="flex items-center justify-between px-5 pb-4 pt-5 safe-top">
-        <span className="text-[14px] font-semibold -tracking-[0.01em]">Честный месяц</span>
+      <header className="flex items-center justify-between px-5 md:px-0 pb-4 pt-5 safe-top">
+        <span className="text-[14px] md:text-[18px] font-semibold md:font-bold -tracking-[0.01em]">
+          Честный месяц
+        </span>
         <span className="flex items-center gap-1.5 text-[12px] text-fg-faint">
           <span
             className={cn(
@@ -48,49 +49,62 @@ export default function HomePage() {
               isSyncing ? "animate-pulse bg-brass" : "bg-sage-strong"
             )}
           />
-          {isSyncing ? "синхронизация" : `обновлено в ${time(accounts[0].lastSyncAt)}`}
+          {isSyncing ? "синхронизация" : `обновлено в ${accounts[0]?.lastSyncAt ? time(accounts[0].lastSyncAt) : "сейчас"}`}
         </span>
       </header>
 
-      <div className="space-y-3 px-5">
-        <Segmented layoutId="home-period" value={period} onChange={setPeriod} options={PERIODS} />
-        <BankFilter />
+      {/* Responsive Grid: 1 col on mobile, 2 cols (7/5) on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 px-5 md:px-0">
+        {/* Main Column (left on desktop) */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <Segmented layoutId="home-period" value={period} onChange={setPeriod} options={PERIODS} />
+            <BankFilter />
+          </div>
 
-        {/* Две карточки из скрина */}
-        <TotalBalanceCard accounts={accounts} totalBalance={totalBalance} />
-        <RealSpendingCard
-          bankOutflow={summary.bankSpent}
-          realExpense={summary.realExpense}
-          excluded={summary.excluded}
-          excludedBreakdown={summary.excludedBreakdown}
-        />
+          {/* Две карточки со скриншота: 1 колонка на мобильном, 2 колонки на десктопе */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <TotalBalanceCard accounts={accounts} totalBalance={totalBalance} />
+            <RealSpendingCard
+              bankOutflow={summary.bankSpent}
+              realExpense={summary.realExpense}
+              excluded={summary.excluded}
+              excludedBreakdown={summary.excludedBreakdown}
+            />
+          </div>
 
-        <SpendDonut summary={summary} />
-        <ReconcileStrip summary={summary} onExplain={() => setExplainOpen(true)} />
-      </div>
+          {/* Три плитки показателей */}
+          <div className="grid grid-cols-3 gap-2.5">
+            <Tile label="Доход" value={money(summary.realIncome)} tone="sage" />
+            <Tile label={period === "month" ? "В день" : "Средний чек"} value={money(perDay)} />
+            <Tile label="Вам должны" value={money(owed)} tone={owed > 0 ? "brass" : "muted"} />
+          </div>
 
-      <div className="mt-2.5">
-        <AttentionCard />
-      </div>
-
-      <div className="mt-2.5 grid grid-cols-3 gap-2 px-5">
-        <Tile label="Доход" value={money(summary.realIncome)} tone="sage" />
-        <Tile label={period === "month" ? "В день" : "Средний чек"} value={money(perDay)} />
-        <Tile label="Вам должны" value={money(owed)} tone={owed > 0 ? "brass" : "muted"} />
-      </div>
-
-
-
-      <section className="mt-5">
-        <div className="mb-1 flex items-center justify-between px-5">
-          <h2 className="text-[15px] font-semibold">Последние события</h2>
-          <Link to="/events" className="flex items-center gap-0.5 text-[13px] text-fg-muted">
-            Все
-            <ChevronRight className="size-3.5" />
-          </Link>
+          <ReconcileStrip summary={summary} onExplain={() => setExplainOpen(true)} />
+          <SpendDonut summary={summary} />
         </div>
-        <EventList events={recent} onSelect={setSelected} />
-      </section>
+
+        {/* Side Panel (right on desktop, bottom on mobile) */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-4">
+          {/* Actionable attention card placed right at top of side panel */}
+          <AttentionCard />
+
+          {/* Последние события feed */}
+          <section className="rounded-3xl border border-line bg-surface/60 p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-[15px] font-bold">Последние события</h2>
+              <Link
+                to="/events"
+                className="flex items-center gap-0.5 text-[12.5px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                Все события
+                <ChevronRight className="size-3.5" />
+              </Link>
+            </div>
+            <EventList events={recent} onSelect={setSelected} />
+          </section>
+        </div>
+      </div>
 
       <ExplainSheet open={explainOpen} onClose={() => setExplainOpen(false)} summary={summary} />
       <EventSheet event={selected} onClose={() => setSelected(null)} />
@@ -107,18 +121,18 @@ const Tile = ({
   value: string;
   tone?: "default" | "sage" | "brass" | "muted";
 }) => (
-  <div className="rounded-2xl border border-line bg-surface px-3 py-3">
-    <p className="text-[11.5px] text-fg-faint">{label}</p>
+  <div className="rounded-2xl border border-line bg-surface p-3 shadow-xs">
+    <p className="text-[11.5px] text-fg-faint font-medium">{label}</p>
     <p
       className={
-        "tnum mt-1 text-[15px] font-semibold " +
+        "tnum mt-1 text-[15px] font-bold tracking-tight " +
         (tone === "sage"
           ? "text-sage-strong"
           : tone === "brass"
             ? "text-brass"
             : tone === "muted"
               ? "text-fg-faint"
-              : "")
+              : "text-fg")
       }
     >
       {value}

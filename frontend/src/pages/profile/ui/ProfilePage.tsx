@@ -202,7 +202,7 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <section className="mt-6 px-5">
+      <section className="mt-6 px-5 md:px-0">
         <div className="flex items-stretch rounded-3xl border border-line bg-surface py-4 shadow-sm">
           <Stat label="Шума убрано" value={money(summary.excluded)} />
           <span className="w-px bg-line" />
@@ -212,7 +212,7 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <section className="mt-5 px-5">
+      <section className="mt-5 px-5 md:px-0">
         <h2 className="px-1 pb-2 text-[13px] text-fg-faint">Настройки</h2>
         <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm">
           <div className="flex items-center justify-between gap-4 px-4 py-4">

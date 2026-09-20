@@ -23,7 +23,7 @@ export const TabBar = () => {
   const initials = name.split(/[\s@._-]+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
 
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center md:hidden">
       <div className="pointer-events-auto mx-auto w-full max-w-[460px] border-t border-line bg-surface/95 px-2 pt-1.5 backdrop-blur-xl safe-bottom">
         <ul className="flex items-stretch">
           {left.map((tab) => (
