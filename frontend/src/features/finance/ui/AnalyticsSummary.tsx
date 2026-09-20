@@ -51,7 +51,7 @@ export const AnalyticsSummary: React.FC = () => {
 
         {/* Monthly Box */}
         <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
-          <p className="text-sm text-zinc-400 mb-1">Honest Month</p>
+          <p className="text-sm text-zinc-400 mb-1">PALATA</p>
           <p className="text-xl font-bold text-white mb-3">₽ {totalExpenses.toLocaleString('ru-RU')}</p>
           
           <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-2">

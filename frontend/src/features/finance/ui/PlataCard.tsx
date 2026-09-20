@@ -9,7 +9,7 @@ export const PlataCard: React.FC = () => {
         <p className="text-emerald-100 text-sm font-medium mb-1">Total Balance</p>
         <h1 className="text-4xl font-bold tracking-tight mb-8">₽ 124,500.00</h1>
         <div className="flex justify-between items-end">
-          <p className="text-sm font-medium opacity-80">Honest Month</p>
+          <p className="text-sm font-medium opacity-80">PALATA</p>
           <div className="flex -space-x-2">
             <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm" />
             <div className="w-8 h-8 rounded-full bg-white/40 backdrop-blur-sm" />
