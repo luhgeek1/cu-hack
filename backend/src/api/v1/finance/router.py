@@ -26,7 +26,7 @@ from service.finance.insights import DSLabInsightGateway, SpendingInsightService
 from service.finance.statement_ai import DSLabStatementAiGateway, StatementAiService
 from service.finance.voice import DSLabVoiceGateway, VoiceService
 
-router = APIRouter(tags=["Honest Month"])
+router = APIRouter(tags=["PALATA"])
 
 
 async def current_finance_user(user=Depends(auth_user), payload=Depends(parse_token)):

@@ -1,1 +1,1 @@
-"""Honest Month financial services."""
+"""PALATA financial services."""

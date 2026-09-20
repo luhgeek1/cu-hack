@@ -59,7 +59,7 @@ def create_app(
 
     app = FastAPI(
         lifespan=lifespan,
-        title="Backend Template",
+        title="PALATA",
         debug=settings.DEBUG if settings.DEBUG is not None else settings.APP_STAGE == "dev",
         docs_url="/api/docs",
         redoc_url="/api/redoc",
