@@ -1,82 +1,156 @@
-# DESIGN.md - UI/UX Guidelines & Design System
+# DESIGN.md — дизайн-система «Честного месяца»
 
-## 1. Design Philosophy & Overview
-This document defines the design system for the application. The visual language is heavily inspired by **Banco Plata** (a modern, sleek, premium neo-bank). 
-
-**Core Characteristics:**
-- **Premium Neo-banking Feel:** Minimalist, high-contrast, uncluttered, and highly trustworthy.
-- **Base Theme:** Dark mode by default (deep blacks and rich grays) to make the accent colors pop and reduce eye strain.
-- **Signature Accent:** A rich emerald green gradient (`bg-gradient-to-r from-emerald-500 to-emerald-900`).
-- **Shapes:** Soft, large border radiuses (`rounded-2xl`, `rounded-3xl`) for cards and containers, giving a tactile, modern mobile-app feel.
-- **Typography:** Clean, geometric sans-serif (Inter, SF Pro, or Roboto). High readability with strict hierarchy.
-
-**Instruction for Agents:** 
-When generating UI code (React, Vue, HTML/CSS), strictly adhere to the Tailwind CSS classes and design principles outlined in this document. Do not invent new color palettes.
+Система внедрена в коде: токены живут в `frontend/src/app/styles/index.css`,
+утилиты Tailwind генерируются из них. Не добавляйте новые цвета —
+пользуйтесь токенами ниже.
 
 ---
 
-## 2. Color Palette (Tailwind CSS)
+## 1. Принципы
 
-### Backgrounds & Surfaces
-The app uses a layered dark theme to create depth.
-- **App Background (Base):** `bg-black` or `bg-zinc-950`
-- **Card / Surface (Level 1):** `bg-zinc-900`
-- **Elevated Surface (Level 2):** `bg-zinc-800`
-- **Borders/Dividers:** `border-zinc-800` or `border-zinc-700/50`
-
-### Brand & Accents
-The signature gradient must be used for primary actions, account balance cards, and key highlights.
-- **Primary Gradient (Backgrounds):** `bg-gradient-to-r from-emerald-500 to-emerald-900`
-- **Primary Gradient (Text):** `bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-emerald-700`
-- **Interactive Hover State:** `hover:brightness-110 transition-all duration-200`
-- **Muted Accent (for subtle highlights):** `bg-emerald-900/20 text-emerald-400`
-
-### Typography Colors
-- **Primary Text (Headings, Main Balances):** `text-white`
-- **Secondary Text (Subtitles, Dates, Categories):** `text-zinc-400`
-- **Tertiary Text (Placeholders, Muted info):** `text-zinc-500`
-
-### Semantic Colors
-- **Income / Positive:** `text-emerald-400`
-- **Expense / Negative:** `text-white` (Keep neutral to avoid user anxiety, or use `text-zinc-300`)
-- **Error / Destructive:** `text-rose-500` `bg-rose-500/10`
-- **Warning:** `text-amber-500`
+1. **Одна мысль на экран.** Главный экран отвечает на вопрос «сколько я реально
+   потратил», остальное — второстепенно.
+2. **Минимум текста.** Число + короткая подпись. Объяснение показываем по тапу,
+   а не на экране.
+3. **Цвет = смысл, а не декор.** Шалфейный (`sage`) — только реальные деньги
+   пользователя и положительные суммы. Латунный (`brass`) — только то, что ждёт
+   решения пользователя. Всё остальное — градации графита.
+4. **Mobile-first.** Колонка `max-w-[460px]`, нижний таб-бар, ничего не
+   рассчитано на курсор.
+5. **Движение объясняет, а не украшает.** Анимируем только то, что показывает
+   изменение: пересчёт суммы, рост полосы, появление следующего вопроса.
 
 ---
 
-## 3. Typography & Spacing
+## 2. Токены
 
-### Fonts
-- **Family:** `font-sans` (Default to Inter, system-ui, or SF Pro).
-- **Tracking:** Use `tracking-tight` for large headings (balances) and `tracking-normal` for body text.
+### Поверхности
+| Токен | Значение | Где |
+|---|---|---|
+| `bg-ink` | `#0b0c0e` | фон приложения |
+| `bg-surface` | `#141619` | карточки, таб-бар, шторки |
+| `bg-raised` | `#1b1e22` | поля ввода, вложенные блоки, трек полос |
+| `border-line` | `#24282d` | границы карточек |
+| `border-line-strong` | `#333840` | разделители, «банковская» полоса, столбцы графика |
 
-### Hierarchy Rules
-- **Main Balance (Hero):** `text-5xl font-bold tracking-tighter text-white`
-- **Section Titles:** `text-xl font-semibold text-white mb-4`
-- **Card Titles (e.g., Transaction Name):** `text-base font-medium text-white`
-- **Small Info / Meta:** `text-sm text-zinc-400 font-normal`
+### Текст
+| Токен | Значение | Где |
+|---|---|---|
+| `text-fg` | `#eef0f2` | суммы, заголовки |
+| `text-fg-muted` | `#8b9299` | подписи, пояснения |
+| `text-fg-faint` | `#5b6169` | метаданные, даты, проценты |
 
-### Spacing & Layout
-- Mobile-first approach. Wrap the main app container in `max-w-md mx-auto min-h-screen bg-black`.
-- Standard screen padding: `px-4 py-6` or `p-5`.
-- Gap between stacked cards: `space-y-3` or `gap-3`.
+### Акценты
+| Токен | Значение | Где |
+|---|---|---|
+| `bg-sage` | `#059669` | заливки: главная кнопка, активный переключатель, полоса реальных трат |
+| `text-sage-strong` | `#10b981` | акцентный текст и иконки (контраст на графите) |
+| `bg-sage-dim` | `#07291f` | фон подтверждённого состояния |
+| `text-brass` / `bg-brass` | `#c2a15c` | «нужно решить», непогашенный долг |
+| `bg-brass-dim` | `#2e2718` | фон карточки с вопросом |
+| `text-destructive` | `#b06a5e` | ошибки |
+
+Никаких неонов и градиентов на крупных плоскостях: градиент допустим только как
+служебное затемнение шторки.
+
+### Фирменные цвета банков
+Единственное исключение из палитры — логотипы и точки банков
+(`entities/finance/ui/meta.ts`): Т-Банк `#ffdd2d`, Сбер `#21a038`,
+Альфа `#ef3124`, Ozon `#005bff`. Использовать только в плитке банка и в
+цветовой точке фильтра, не как акцент интерфейса.
+
+### Цвета донат-диаграммы
+Рампа от зелёного к графиту: `#059669` → `#0b7a5e` → `#3f7a67` → `#5b6169` →
+`#7d848c` → `#a9b0b7`. Чем крупнее доля категории, тем зеленее сегмент.
 
 ---
 
-## 4. Core Components
+## 3. Типографика
 
-### A. The "Plata" Main Account Card
-This represents the user's main wallet or virtual card. It should be the visual centerpiece.
-```html
-<div class="bg-gradient-to-r from-emerald-500 to-emerald-900 rounded-[32px] p-6 text-white shadow-lg shadow-emerald-900/20 relative overflow-hidden">
-  <!-- Subtle glass overlay/shine effect -->
-  <div class="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-  <div class="relative z-10">
-    <p class="text-emerald-100 text-sm font-medium mb-1">Total Balance</p>
-    <h1 class="text-4xl font-bold tracking-tight mb-8">₽ 124,500.00</h1>
-    <div class="flex justify-between items-end">
-      <p class="text-sm font-medium opacity-80">Honest Month</p>
-      <!-- Optional Mastercard/Visa circles or icon -->
-    </div>
-  </div>
-</div>
+- Шрифт: **Golos Text** (400/500/600/700), подключён в `index.html`.
+- Все суммы — с классом `.tnum` (табличные цифры), иначе колонки «пляшут».
+- Шкала:
+  - главная сумма — `text-[46px] font-bold -tracking-[0.02em]`
+  - заголовок раздела — `text-[22px] font-bold`
+  - подзаголовок блока — `text-[15px] font-semibold`
+  - строка списка — `text-[15px] font-medium`
+  - подпись — `text-[12.5px] text-fg-muted`
+- Деньги форматируем только через `money()` из `shared/lib/format.ts`
+  (узкие неразрывные пробелы, минус `−`, без копеек).
+
+---
+
+## 4. Сетка и радиусы
+
+- Горизонтальный отступ экрана — `px-5`.
+- Между блоками — `mt-5` … `mt-7`.
+- Карточка — `rounded-2xl border border-line bg-surface`.
+- Шторка — `rounded-t-[28px]`.
+- Кнопка-таблетка — `rounded-full`.
+- Нижний отступ контента — `pb-28` (под таб-бар).
+- Верхний отступ экрана — утилита `safe-top` (20 px или вырез), для «портретных»
+  экранов вроде профиля — `safe-top-lg` (32 px). Не добавляйте рядом `pt-*`:
+  утилита задаёт `padding-top` сама и перебьёт его.
+- Блоки главного экрана идут через `space-y-2.5` — плотная сетка карточек,
+  как в мобильных банках.
+
+---
+
+## 4a. Навигация
+
+Пять слотов, по центру — аватар пользователя (ведёт в Профиль). Аватар берётся
+из `useProfile()`; пока профиль не загружен — инициалы, затем иконка. Точка
+латунного цвета на «Событиях» появляется, когда есть неразобранные операции.
+
+---
+
+## 5. Компоненты
+
+| Компонент | Файл | Назначение |
+|---|---|---|
+| `MobileShell` | `app/layouts/MobileShell.tsx` | колонка + таб-бар + `FinanceProvider` |
+| `TabBar` | `app/layouts/TabBar.tsx` | 5 слотов: Главное · События · аватар (Профиль) · Аналитика · Счета |
+| `SpendDonut` | `features/reconcile/ui/` | донат по категориям, в центре — честные траты |
+| `ReconcileStrip` | `features/reconcile/ui/` | две полосы: списал банк / из них ваши |
+| `BankFilter` | `features/accounts/ui/` | фильтр по счёту: все банки или один |
+| `ActiveBankChip` | `features/accounts/ui/` | напоминание о фильтре на других экранах |
+| `ExplainSheet` | `features/reconcile/ui/` | реестр «откуда получилась сумма» |
+| `AttentionCard` | `features/attention/ui/` | один вопрос, ответ в один тап |
+| `EventRow` / `EventList` | `features/events/ui/` | лента событий по дням |
+| `EventSheet` | `features/events/ui/` | карточка события + граф денег |
+| `MoneyGraph` | `features/events/ui/` | дерево: списание → возвраты |
+| `BottomSheet` | `shared/ui/BottomSheet.tsx` | шторка (Esc, блокировка скролла) |
+| `ProcessingSteps` | `features/onboarding/ui/` | шаги обработки: спиннер → галочка |
+| `Segmented` | `shared/ui/Segmented.tsx` | переключатель периодов и фильтров |
+| `AnimatedMoney` | `shared/ui/AnimatedMoney.tsx` | сумма «доезжает» при пересчёте |
+
+Онбординг (`pages/onboarding`) живёт вне `MobileShell`: без таб-бара, с полосой
+прогресса «шаг из 4» сверху и основной кнопкой внизу экрана. Шаги: загрузка
+PDF → чтение → выбор сервисов → разбор → итог. Пока всё моковое, факт
+прохождения лежит в `localStorage` (`features/onboarding/model/storage.ts`).
+
+Профиль — единственный экран с центрированной композицией: кольцо вокруг
+аватара показывает долю событий, разобранных без вопросов, и служит опорой
+для всего экрана. Иконка камеры видна всегда (на телефоне нет наведения).
+
+---
+
+## 6. Правила для сумм в интерфейсе
+
+- Реальная трата: `−2 340 ₽`, цвет `fg`.
+- Доход: `+185 000 ₽`, цвет `sage`.
+- Событие, которое не является тратой (перевод себе, долг, пополнение карты):
+  сумма банка зачёркнута, цвет `fg-faint`.
+- Событие, которое ждёт решения: сумма банка цветом `brass`, без зачёркивания.
+- Если реальная трата меньше списания (общий счёт, возврат) — под суммой
+  мелким зачёркнутым показываем, сколько списал банк.
+
+---
+
+## 7. Анимация
+
+- Полосы и столбцы анимируем **через `scaleX`/`scaleY`**, а не `width`/`height`:
+  при `prefers-reduced-motion` motion мгновенно ставит конечное значение, и
+  график остаётся видимым. Размер задаём `style`, не анимацией.
+- В приложение обёрнут `<MotionConfig reducedMotion="user">`.
+- Длительность 0.5–0.9 с, кривая `[0.16, 1, 0.3, 1]`.

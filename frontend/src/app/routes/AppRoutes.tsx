@@ -1,10 +1,15 @@
 import { Navigate, Outlet, useLocation, useRoutes, type Location, type RouteObject } from "react-router-dom";
-import HomePage from "@/pages/Home";
-import ProfilePage from "@/pages/Profile/ui/ProfilePage";
-import AuthPage from "@/pages/auth/ui/AuthPage";
-import { useAuth } from "@/app/providers/auth/useAuth";
 
-import DashboardPage from "@/pages/Dashboard";
+import { useAuth } from "@/app/providers/auth/useAuth";
+import { MobileShell } from "@/app/layouts/MobileShell";
+import { isOnboarded } from "@/features/onboarding/model/storage";
+import OnboardingPage from "@/pages/onboarding/ui/OnboardingPage";
+import AccountsPage from "@/pages/accounts/ui/AccountsPage";
+import AnalyticsPage from "@/pages/analytics/ui/AnalyticsPage";
+import AuthPage from "@/pages/auth/ui/AuthPage";
+import EventsPage from "@/pages/events/ui/EventsPage";
+import HomePage from "@/pages/home/ui/HomePage";
+import ProfilePage from "@/pages/profile/ui/ProfilePage";
 
 const RequireAuth = () => {
   const auth = useAuth();
@@ -16,6 +21,17 @@ const RequireAuth = () => {
 
   if (!auth.user) {
     return <Navigate to="/auth" replace state={{ from: location }} />;
+  }
+
+  return <Outlet />;
+};
+
+/** Пока выписка не разобрана, пускаем только в онбординг */
+const RequireOnboarding = () => {
+  const auth = useAuth();
+
+  if (!isOnboarded(auth?.user?.email as string | undefined)) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <Outlet />;
@@ -46,21 +62,32 @@ export const routes: RouteObject[] = [
     path: "/",
     element: <RequireAuth />,
     children: [
-      { index: true, element: <HomePage /> },
-      { path: "profile", element: <ProfilePage /> },
-      { path: "dashboard", element: <DashboardPage /> },
-    ]
+      { path: "onboarding", element: <OnboardingPage /> },
+      {
+        element: <RequireOnboarding />,
+        children: [
+          {
+            element: <MobileShell />,
+            children: [
+          { index: true, element: <HomePage /> },
+          { path: "events", element: <EventsPage /> },
+          { path: "analytics", element: <AnalyticsPage /> },
+              { path: "accounts", element: <AccountsPage /> },
+              { path: "profile", element: <ProfilePage /> },
+            ],
+          },
+        ],
+      },
+    ],
   },
   {
     path: "/auth",
-    element: <RedirectIfAuthenticated />
+    element: <RedirectIfAuthenticated />,
   },
   {
     path: "*",
-    element: <Navigate to="/" replace />
-  }
+    element: <Navigate to="/" replace />,
+  },
 ];
 
-export const AppRoutes = () => {
-  return useRoutes(routes);
-};
+export const AppRoutes = () => useRoutes(routes);
