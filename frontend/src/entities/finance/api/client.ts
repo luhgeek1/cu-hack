@@ -165,6 +165,14 @@ export const importStatement = async (accountId: string, file: File): Promise<St
   return data;
 };
 
+/** Готовые операции из файла — бэкенд принимает не больше 2000 за раз */
+export const importTransactions = async (
+  transactions: Record<string, unknown>[]
+): Promise<ImportResultDto> => {
+  const { data } = await apiProtected.post<ImportResultDto>("/imports", { transactions });
+  return data;
+};
+
 export const getIntegrations = async (): Promise<IntegrationDto[]> => {
   const { data } = await apiProtected.get<IntegrationDto[]>("/integrations");
   return data;
