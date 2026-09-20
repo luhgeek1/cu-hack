@@ -3,7 +3,7 @@ FROM node:25-alpine AS frontend-builder
 WORKDIR /app
 
 COPY frontend/package*.json ./
-RUN npm ci --silent --no-audit --no-fund
+RUN npm install --silent --no-audit --no-fund
 
 COPY frontend/ ./
 

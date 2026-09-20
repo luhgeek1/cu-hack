@@ -1,4 +1,5 @@
 import { BrowserRouter } from "react-router-dom";
+import { MotionConfig } from "motion/react";
 import { useAuth } from "@/app/providers/auth/useAuth";
 import { AppRoutes } from "@/app/routes/AppRoutes";
 
@@ -7,9 +8,9 @@ function App() {
 
   if (!authData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-red-100">
-        <div className="p-8 bg-white rounded-lg shadow-md text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Ошибка конфигурации</h1>
+      <div className="flex min-h-dvh items-center justify-center bg-ink px-6">
+        <div className="rounded-2xl border border-line bg-surface p-6 text-center">
+          <h1 className="text-[16px] font-semibold text-destructive">Ошибка конфигурации</h1>
         </div>
       </div>
     );
@@ -22,24 +23,26 @@ function App() {
 
   if (isRestoringSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-lg text-slate-500">Загрузка сессии...</p>
+      <div className="flex min-h-dvh items-center justify-center bg-ink">
+        <p className="text-[14px] text-fg-muted">Загрузка…</p>
       </div>
     );
   }
 
   if (isUserLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-lg text-slate-500">Загрузка пользователя...</p>
+      <div className="flex min-h-dvh items-center justify-center bg-ink">
+        <p className="text-[14px] text-fg-muted">Загрузка…</p>
       </div>
     );
   }
 
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </MotionConfig>
   );
 }
 
